@@ -1,4 +1,12 @@
-default={
+"""
+default calatlog used to find data
+format- name of Vizier catalog is mapped to list containing 
+1.list of columns in format magnitude, magnitude_err
+2.list of name of filters to save magnitudes
+3.radius of cone search measured in arcsec
+"""
+
+MagClaud={
     "I/345/gaia2":[["Gmag","e_Gmag","BPmag","e_BPmag","RPmag","e_RPmag"],
     ["G_Gaia","BP_Gaia","RP_Gaia"],0.3],
     "II/246/out":[["Hmag","e_Hmag","Kmag","e_Kmag","Jmag","e_Jmag"],

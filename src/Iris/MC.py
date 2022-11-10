@@ -35,10 +35,8 @@ def mag_to_flux_pyphot(filtr,mag, err,AB):
         F_nu = pow(10.0, -0.4*mag) * filtr.AB_zero_Jy.magnitude # Jy
     else:
         F_nu = pow(10.0, -0.4*mag) * filtr.Vega_zero_Jy.magnitude # Jy
-    #print(_filtr, F_nu)
     lam = filtr.leff.to("um").magnitude # um
     nu = 3.0e14 / lam # Hz
-    #nuF_nu = nu*F_nu * 1.0e-26 # W/m^2
     F_lam = 3.0e-12 * F_nu / (lam*lam) # W/m^2/um
     lamF_lam = lam * F_lam # W/m^2
     frac_error = 0.4 * np.log(10.0) * err
@@ -49,6 +47,11 @@ def to_temp(a,g):
         return (4.21-3.444)*a+3.444
     else:
         return (4.6-3.31)*a+3.31
+
+"""
+functions to create filters from .dat files
+
+"""
 def get_Vista(name):
     wave=np.loadtxt(directory.joinpath("VISTA_Filters_at80K_forETC_"+name+".dat"), unpack=True, usecols=[0], dtype=float)*10*unit["AA"]
     trans=np.loadtxt(directory.joinpath("VISTA_Filters_at80K_forETC_"+name+".dat"), unpack=True, usecols=[1], dtype=float)/100
@@ -127,39 +130,53 @@ bijector_list_double=[Sigmoid(low=3.31,high=4.6),Sigmoid(low=-3,high=5),Sigmoid(
 
 
 class Star:
-
+    """
+    main Star class
+    usage:
+    -construct list of filters with coresponding magnitudes and errors
+    -remember to pass distance or parallax!
+    -call preproces data, this is crucial before sampling!
+    -run chains and plot data
+    """
     def __init__(self,name,ra,dec,catalog=None,d=None,d_err=None,paralax=None,paralax_err=None,E_B_V=None,Z=0.013):
-        self.name=name
-        self.ra=ra
-        self.dec=dec
-        self.plx=paralax
-        self.e_plx=paralax_err
-        self.d=d
-        self.d_err=d_err
-        self.filters=[]
-        self.filters=[]
-        self.ampl=[]
-        self.err=[]
-        self.zerop=[]
-        self.dis_norm=1
-        self.use_parallax=False
-        self.catalogs=catalog
-        self.EBV=E_B_V
-        self.Z=Z
-        self.par_single=np.zeros(3)
-        self.par_single_container=None
-        self.par_double=np.zeros(5)
-        self.par_double_container=None
-        self.lib_stell=BaSeL()
+        self.name=name                      #name
+        self.ra=ra                          #right ascesion angle
+        self.dec=dec                        #declination
+        self.plx=paralax                    #parllax 
+        self.e_plx=paralax_err              #parallax error
+        self.d=d                            #distance
+        self.d_err=d_err                    #error of distance
+        self.filters=[]                     #filters
+        self.ampl=[]                        #magnitudes
+        self.err=[]                         #errors
+        self.zerop=[]                       #zero points of filters
+        self.dis_norm=1                     #norm to search distance
+        self.use_parallax=False             #use parallax to sample or not
+        self.catalogs=catalog               #catalog in the specified format to search Vizier
+        self.EBV=E_B_V                      #E(B-V), used to include extinction using 
+        self.Z=Z                            #metalicity
+        self.par_single=np.zeros(3)         #parameters of single sample
+        self.par_single_container=None      #container for values
+        self.par_double=np.zeros(5)         #parameters of double sample
+        self.par_double_container=None      #container for values
+        self.lib_stell=BaSeL()              #what library to use
         self.lib_phot=pyphot.get_library()
         
         """
         DATA DOWNLOAD UTILS
         #########################################################################################################################
+        Iris recognizes two types of filters:
+        -recognized by pyphot
+            -in orginal name as in pyphot
+            -mapped to orginal name using converting dictionary con
+        -added manually
         """
 
 
     def get_SMdr2(self,num=0):
+        """
+        get data from SkyMapper DR2, unfortunatly we cannot use Vizier :(
+        """
         if self.catalogs==None:
             print("No catalog found!")
             return
@@ -205,6 +222,9 @@ class Star:
             print("Object "+self.name+" not found in catalog "+name) 
 
     def delete(self,name):
+        """
+        delete one filter
+        """
         id=self.filters==name
         print(id)
         if sum(id)>0:
@@ -212,15 +232,21 @@ class Star:
             self.err=self.err[np.logical_not(id)]
             self.ampl=self.ampl[np.logical_not(id)]
         else:
-            print("no filter")
+            print("no filter with given name")
     
     def delete_id(self,id):
+        """
+        delete filter with given id
+        """
         temp=np.array([i==id for i in range(len(self.ampl))])
         self.ampl=self.ampl[np.logical_not(temp)]
         self.filters=self.filters[np.logical_not(temp)]
         self.err=self.err[np.logical_not(temp)]
 
     def get_all(self,get_SMDR2=True):
+        """
+        use provided catalogs to find data
+        """
         if self.catalogs==None:
             print("No catalog found!")
             return
@@ -233,6 +259,9 @@ class Star:
 
 
     def prepare_data(self):
+        """
+        prepara data before usage
+        """
         self.ampl=np.array(self.ampl)
         self.err=np.array(self.err)
         self.filters=list(map(lambda x: con[x] if x in con else x,self.filters))
@@ -256,6 +285,9 @@ class Star:
                 self.fil_obj.append(OTHER[self.filters[i]])
     
     def get_parallax(self):
+        """
+        get parallax using Gaia DR3
+        """
         v=Vizier(columns=["Plx","e_Plx"])
         result = v.query_region(coords.SkyCoord(ra=self.ra, dec=self.dec,
                                             unit=(u.deg, u.deg),
@@ -282,10 +314,41 @@ class Star:
             self.plx=None
             self.e_plx=None
     def set_EBV(self,ebv):
+        """
+        set E(B-V) using provided value
+        """
         self.EBV=ebv
-        self.ext=extinction.fitzpatrick99(np.array(self.lib_stell.wavelength),3.1*self.EBV)
+        self.ext=extinction.ccm89(np.array(self.lib_stell.wavelength),3.1*self.EBV)
         print("E(B-V) = ",self.EBV)
-    
+
+    def add_obs(self,name,ampl,err):
+        """
+        manually add observation
+        """
+        self.filters.append(name)
+        self.ampl.append(ampl)
+        self.err.append(err)
+
+    def get_EBV_TIC(self):
+        """
+        get E(B-V) using TIC
+        """
+        v=Vizier(columns=["E(B-V) ","s_E(B-V) "])
+        result = v.query_region(coords.SkyCoord(ra=self.ra, dec=self.dec,
+                                            unit=(u.deg, u.deg),
+                                            frame='icrs'),
+                                            catalog="IV/38/tic ",
+                                            radius=0.3*u.arcsec)
+        try:
+            file=result[0]
+            ebv=file[0][0]
+            e_ebv=file[0][1]
+            print("E(B-V): {:.4f} mas".format(ebv))
+            print("E(B-V) err: {:.4f} mas".format(e_ebv))
+            self.EBV=ebv
+        except IndexError:
+            print("No E(B-V) found for object")
+
     """
     MCMC ROUTINES
     ###########################################################################
