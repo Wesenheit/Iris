@@ -110,12 +110,15 @@ con={
     "FUV":"GALEX_FUV",
     "NUV":"GALEX_NUV"
 }
-AB=["NUV","FUV","i_PS1","z_PS1","g_PS1","r_PS1","g_SM","r_SM","i_SM","u_SM","v_SM","z_SM","UVM2","UVW1","UVW2"]
+#AB=["NUV","FUV","i_PS1","z_PS1","g_PS1","r_PS1","g_SM","r_SM","i_SM","u_SM","v_SM","z_SM","UVM2","UVW1","UVW2","SDSS_g","SDSS_r","SDSS_i"]
+AB=["GALEX_NUV","GALEX_FUV","PS1_g","PS1_i","PS1_z","PS1_r","SkyMapper_g","SkyMapper_r","SkyMapper_i","SkyMapper_z","SkyMapper_u","SkyMapper_v",
+"UVM2","UVW1","UVW2","SDSS_g","SDSS_r","SDSS_i"]
 OTHER={}
 OTHER["K_VISTA"]=get_Vista("Ks")
 OTHER["Z_VISTA"]=get_Vista("Z")
 OTHER["Y_VISTA"]=get_Vista("Y")
 OTHER["J_VISTA"]=get_Vista("J")
+OTHER["H_VISTA"]=get_Vista("H")
 OTHER["UVM2"]=get_xmm("UVM2")
 OTHER["UVW2"]=get_xmm("UVW2")
 OTHER["UVW1"]=get_xmm("UVW1")
@@ -182,7 +185,7 @@ class Star:
             return
         service_sm = vo.dal.SCSService("https://skymapper.anu.edu.au/sm-cone/public/query?")
         v=SkyCoord(ra=self.ra,dec=self.dec,unit="deg")
-        file = service_sm.search(pos=v, sr=0.3/(60*60))
+        file = service_sm.search(pos=v, sr=0.3/(60*60)*self.dis_norm)
         name="II/358/smss"
         if len(file)>0:
             print("found {} files in SM DR2".format(len(file)))
@@ -206,7 +209,7 @@ class Star:
                                             unit=(u.deg, u.deg),
                                             frame='icrs'),
                                             catalog=name,
-                                            radius=self.catalogs[name][2]*u.arcsec)
+                                            radius=self.catalogs[name][2]*u.arcsec*self.dis_norm)
         print(result)
         try:
             file=result[0]
@@ -225,7 +228,7 @@ class Star:
         """
         delete one filter
         """
-        id=self.filters==name
+        id=(self.filters==name)
         print(id)
         if sum(id)>0:
             self.filters=self.filters[np.logical_not(id)]
@@ -262,12 +265,20 @@ class Star:
         """
         prepara data before usage
         """
+        names=[]
+        for i in range(len(self.ampl)):
+            if self.err[i]<= 0:
+                names.append(self.filters[i])
+                print("filtert {} with no magnitude error!".format(self.filters[i]))
+
         self.ampl=np.array(self.ampl)
         self.err=np.array(self.err)
         self.filters=list(map(lambda x: con[x] if x in con else x,self.filters))
         self.filters=np.array(self.filters)
         self.zerop=[]
-        
+        for n in names:
+            self.delete(n)
+
         for i in self.filters:
             try:
                 f=self.lib_phot[i]
@@ -292,8 +303,8 @@ class Star:
         result = v.query_region(coords.SkyCoord(ra=self.ra, dec=self.dec,
                                             unit=(u.deg, u.deg),
                                             frame='icrs'),
-                                            catalog="I/355 ",
-                                            radius=0.3*u.arcsec)
+                                            catalog="I/355/gaiadr3",
+                                            radius=0.3*u.arcsec*self.dis_norm)
         try:
             file=result[0]
             plx=file[0][0]
@@ -313,12 +324,35 @@ class Star:
             print("No parallax found for object")
             self.plx=None
             self.e_plx=None
+
+    def get_pos_gaia(self,show=True):
+        """
+        get position using Gaia DR3
+        """
+        v=Vizier(columns=["RA_ICRS","DE_ICRS"])
+        result = v.query_region(coords.SkyCoord(ra=self.ra, dec=self.dec,
+                                            unit=(u.deg, u.deg),
+                                            frame='icrs'),
+                                            catalog="I/355/gaiadr3 ",
+                                            radius=0.3*u.arcsec*self.dis_norm)
+        try:
+            file=result[0]
+            ra=file[0][0]
+            dec=file[0][1]
+            if show:
+                print("RA: {:.4f} deg".format(ra))
+                print("DEC: {:.4f} deg".format(dec))
+            return ra,dec
+                
+        except IndexError:
+            print("No gaia entry found for object")
+
     def set_EBV(self,ebv):
         """
         set E(B-V) using provided value
         """
         self.EBV=ebv
-        self.ext=extinction.ccm89(np.array(self.lib_stell.wavelength),3.1*self.EBV)
+        self.ext=extinction.ccm89(np.array(self.lib_stell.wavelength),3.1*self.EBV,3.1)
         print("E(B-V) = ",self.EBV)
 
     def add_obs(self,name,ampl,err):
@@ -348,6 +382,10 @@ class Star:
             self.EBV=ebv
         except IndexError:
             print("No E(B-V) found for object")
+
+    def list_filters(self):
+        for i in range(len(self.filters)):
+            print(self.filters[i],self.ampl[i],self.err[i])
 
     """
     MCMC ROUTINES
@@ -473,6 +511,24 @@ class Star:
         self.get_bic_double()
         self.log_prob_chainp=sampler.get_log_prob(flat=True,discard=num_burn)
 
+    def run_chain_double_start(self,num_step,num_burn,n,parameters,progress=True):
+        sampler = emcee.EnsembleSampler(
+            n, 5, self.get_log_prob_double
+            )
+        
+        start=np.repeat(np.array([parameters]),n,axis=0)+np.random.randn(n,5)*0.01
+    
+        print("starting conditions: ",start)
+        sampler.run_mcmc(transform(start,bijector_list_double), num_step+num_burn, progress=progress)
+        temp=untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_double)
+        logT1_samples,logL1_samples,logT2_samples,logL2_samples,d_samples=temp.T
+        print("acceptence ratio:", np.mean(sampler.acceptance_fraction))
+        self.par_double=[np.median(logT1_samples),np.median(logL1_samples),np.median(logT2_samples),np.median(logL2_samples),np.median(d_samples)]
+        self.par_double_container=[logT1_samples,logL1_samples,logT2_samples,logL2_samples,d_samples]
+        ###
+        self.get_bic_double()
+        self.log_prob_chainp=sampler.get_log_prob(flat=True,discard=num_burn)
+
     
     def run_chain_simple(self,num_step,num_burn,n,progress=True,T=None):
         sampler = emcee.EnsembleSampler(
@@ -504,7 +560,56 @@ class Star:
         print("parameters:",self.par_single)
         self.log_prob_chain=sampler.get_log_prob(flat=True,discard=num_burn)
 
-    def rerun_chain_double(self,num_step,num_burn,n,progress=True):
+    def rerun_chain_simple(self,num_step,num_burn,n,progress=True,T=None,max_prob=False):
+        sampler = emcee.EnsembleSampler(
+            n, 3, self.get_log_prob_simple
+            )
+        start=np.zeros([n,3])
+        if T is not None:
+            T=0 if T<0 else T
+            start_temp=np.log10(T)
+            print("starting temprature", T,start_temp)
+            start[:,0]=np.random.randn(1,n)*0.01+start_temp
+        else:
+            print("temprature estimate not found")
+            start[:,0]=to_temp(np.random.rand(n),4.0)
+        start[:,1]=np.random.rand(1,n)*8-3
+        if self.use_parallax:
+            start[:,2]=np.random.randn(n)*self.e_plx+self.plx
+        else:
+            start[:,2]=np.random.randn(n)*self.d_err+self.d
+        print("starting conditions:", start)
+        start_tf=transform(start,bijector_list_sig)
+        sampler.run_mcmc(start_tf, num_step+num_burn, progress=progress)
+        print("inital acceptance ratio",np.mean(sampler.acceptance_fraction))
+        temp=untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_sig)
+        if max_prob:
+            print("using maximum log prob to start")
+            log_probs=sampler.get_log_prob(flat=True,discard=num_burn)
+            log_probs_tranc=np.unique(log_probs)
+            temp_tran=np.unique(temp,axis=0)
+            idx = (-log_probs_tranc).argsort()[:n]
+            new_start=temp_tran[idx]+0.01 * np.random.randn(n, 3)
+        else:
+            print("sampling new starting conditions")
+            temp_tran=np.unique(temp,axis=0)
+            rng = np.random.default_rng()
+            new_start=rng.choice(temp_tran,size=n,axis=0)+np.random.randn(n,3)*0.01
+        print("new starting conditions:")
+        print(new_start)
+        sampler.reset()
+        sampler.run_mcmc(transform(new_start,bijector_list_sig), num_step, progress=progress)
+        print("acceptence ratio",np.mean(sampler.acceptance_fraction))
+        states=untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_sig)
+        logT_samples,logL_samples,val_samples=states.T
+        self.par_single=[np.median(logT_samples),np.median(logL_samples),np.median(val_samples)]
+        self.par_single_container=[logT_samples,logL_samples,val_samples]
+        self.get_bic_simple()
+        print("parameters:",self.par_single)
+        self.log_prob_chain=sampler.get_log_prob(flat=True,discard=num_burn)
+
+
+    def rerun_chain_double(self,num_step,num_burn,n,progress=True,max_prob=True):
         sampler = emcee.EnsembleSampler(
         n, 5, self.get_log_prob_double
         )
@@ -525,11 +630,17 @@ class Star:
         sampler.run_mcmc(transform(start,bijector_list_double), num_step+num_burn, progress=progress)
         print("initial acceptence ratio",np.mean(sampler.acceptance_fraction))
         temp=untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_double)
-        log_probs=sampler.get_log_prob(flat=True,discard=num_burn)
-        log_probs_tranc=np.unique(log_probs)
-        temp_tran=np.unique(temp,axis=0)
-        idx = (-log_probs_tranc).argsort()[:n]
-        new_start=temp_tran[idx]+0.01 * np.random.randn(n, 5)
+        if max_prob:
+            log_probs=sampler.get_log_prob(flat=True,discard=num_burn)
+            log_probs_tranc=np.unique(log_probs)
+            temp_tran=np.unique(temp,axis=0)
+            idx = (-log_probs_tranc).argsort()[:n]
+            new_start=temp_tran[idx]+0.01 * np.random.randn(n, 5)
+        else:
+            temp_tran=np.unique(temp,axis=0)
+            rng = np.random.default_rng()
+            new_start=rng.choice(temp_tran,size=n,axis=0)+np.random.randn(n,5)*0.01
+        
         print("new starting conditions:")
         print(new_start)
         sampler.reset()
@@ -544,7 +655,7 @@ class Star:
         self.get_bic_double()
         self.log_prob_chainp=sampler.get_log_prob(flat=True,discard=num_burn)
 
-    def plot_measurments(self,ax,plot_fwhm=True):
+    def plot_measurments(self,ax,plot_fwhm=False):
         N = len(self.ampl)
 
         lam, lamF_lam, logerr = [], [], []
@@ -583,6 +694,8 @@ class Star:
         lamF_lam=np.array(lamF_lam)+7-4
         ax.set_ylim(min(lamF_lam)-0.5,max(lamF_lam)+2)
         ax.set_xlim(0.1,10)
+        if self.EBV is not None:
+            plt.figtext(0.65,0.05,r"$E(B-V)={0:.3f}$".format(self.EBV))
         #for i in range(len(fwhm)):
         #    print(fwhm[i],self.filters[i])
         if len(lam)>0:
@@ -611,14 +724,22 @@ class Star:
         np.median(d_samples),np.median(r_sample)/Rs,np.quantile(r_sample/Rs,0.84)-np.median(r_sample/Rs),np.median(r_sample)/Rs-np.quantile(r_sample/Rs,0.16),self.Z
         ]
         ax.plot(np.array(self.lib_stell.wavelength)/10**4,np.log10(np.array(flux)*np.array(self.lib_stell.wavelength)),
-        label=r"$T={0:.0f}^{{+{1:.0f}}}_{{-{2:.0f}}}$ K, $ d={3:.2f}$ kpc, $R={4:.2f}^{{+{5:.2f}}}_{{-{6:.2f}}}$ $r_{{\odot}}$, $Z={7:.3f}$".format(*param),color="orange")
+        label=r"$T={0:.0f}^{{+{1:.0f}}}_{{-{2:.0f}}}$ K, $R={4:.2f}^{{+{5:.2f}}}_{{-{6:.2f}}}$ $R_{{\odot}}$, $Z={7:.3f}$".format(*param),color="orange")
         ax.set_xscale('log')
         plt.legend()
         ax.set_xlabel(r'$\lambda$ [$\mu\textrm{m}$]')
         ax.set_ylabel(r'log $\lambda F_{\lambda}$ (erg cm$^{-2}$s$^{-1}$)')
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
         plt.title(self.name)
-        plt.figtext(0.25,0.05,"BIC: {0:.1f}".format(self.bic_simple))
+        plt.figtext(0.2,0.05,"BIC: {0:.1f}".format(self.bic_simple))
+        if self.EBV is None:
+            high=0.05
+        else:
+            high=0.1
+        plt.figtext(0.65,high,"$d={0:.2f}^{{+{1:.2f}}}_{{-{2:.2f}}}$ kpc".format(np.median(d_samples),
+                np.quantile(d_samples,0.84)-np.median(d_samples),
+                np.median(d_samples)-np.quantile(d_samples,0.16)
+            ))
         plt.tight_layout()
         plt.savefig(self.name+"_simple_emcee.png",dpi=500)
 
@@ -707,8 +828,15 @@ class Star:
         ax.set_ylabel(r'log $\lambda F_{\lambda}$ (erg cm$^{-2}$s$^{-1}$)')
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
         plt.title(self.name)
-        plt.figtext(0.25,0.05,"BIC: {0:.1f}".format(self.bicd))
-        plt.figtext(0.75,0.05,"$d={0:.1f}$ kpc".format(np.median(d_samples)))
+        plt.figtext(0.2,0.05,"BIC: {0:.1f}".format(self.bicd))
+        if self.EBV is None:
+            high=0.05
+        else:
+            high=0.1
+        plt.figtext(0.65,high,"$d={0:.2f}^{{+{1:.2f}}}_{{-{2:.2f}}}$ kpc".format(np.median(d_samples),
+                np.quantile(d_samples,0.84)-np.median(d_samples),
+                np.median(d_samples)-np.quantile(d_samples,0.16)
+            ))
         plt.tight_layout()
         plt.savefig(self.name+"_double_emcee.png",dpi=500)
         print("parameters:",self.par_double)
@@ -795,18 +923,26 @@ class Star:
         np.median(d_samples),np.median(r_sample)/Rs,np.quantile(r_sample/Rs,0.84)-np.median(r_sample/Rs),np.median(r_sample)/Rs-np.quantile(r_sample/Rs,0.16),self.Z
         ]
         sns.lineplot(x=wave.flatten()/10**4,y=np.log10(flux.flatten()*wave.flatten()),ax=ax,
-        label=r"$T={0:.0f}^{{+{1:.0f}}}_{{-{2:.0f}}}$ K, $ d={3:.2f}$ kpc, $R={4:.2f}^{{+{5:.2f}}}_{{-{6:.2f}}}$ $r_{{\odot}}$, $Z={7:.3f}$".format(*param),color="orange")
+        label=r"$T={0:.0f}^{{+{1:.0f}}}_{{-{2:.0f}}}$ K, $R={4:.2f}^{{+{5:.2f}}}_{{-{6:.2f}}}$ $R_{{\odot}}$, $Z={7:.3f}$".format(*param),color="orange")
         ax.set_xscale('log')
         plt.legend()
         ax.set_xlabel(r'$\lambda$ [$\mu\textrm{m}$]')
         ax.set_ylabel(r'log $\lambda F_{\lambda}$ (erg cm$^{-2}$s$^{-1}$)')
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
         plt.title(self.name)
-        plt.figtext(0.25,0.05,"BIC: {0:.1f}".format(self.bic_simple))
+        plt.figtext(0.2,0.05,"BIC: {0:.1f}".format(self.bic_simple))
+        if self.EBV is None:
+            high=0.05
+        else:
+            high=0.1
+        plt.figtext(0.65,high,"$d={0:.2f}^{{+{1:.2f}}}_{{-{2:.2f}}}$ kpc".format(np.median(d_samples),
+                np.quantile(d_samples,0.84)-np.median(d_samples),
+                np.median(d_samples)-np.quantile(d_samples,0.16)
+            ))
         plt.tight_layout()
         plt.savefig(self.name+"_simple_emcee.png",dpi=500)
         print("parameters:",self.par_single)
-        print("errors:",self.par_single_container)
+        #print("errors:",self.par_single_container)
         plt.close()
         data=np.array([[self.par_single_container[0][i],self.par_single_container[1][i],self.par_single_container[2][i]] for i in range(len(self.par_single_container[0]))])
         print(len(data))
@@ -875,7 +1011,7 @@ class Star:
         flux1=np.zeros([num_samples,1221])
         flux2=np.zeros([num_samples,1221])
         wave=np.zeros([num_samples,1221])
-        id_list=np.random.randint(low=0, high=len(self.par_single_container[0]), size=num_samples)
+        id_list=np.random.randint(low=0, high=len(self.par_double_container[0]), size=num_samples)
         if self.use_parallax:
             for i in range(num_samples):
                 id=id_list[i]
@@ -892,9 +1028,9 @@ class Star:
             flux1=np.power(10,-0.4*self.ext)*flux1
             flux2=np.power(10,-0.4*self.ext)*flux2
         sns.lineplot(x=wave.flatten()/10**4,y=np.log10(flux1.flatten()*wave.flatten()),ax=ax,
-        label=r"$T={0:.0f}^{{+{1:.0f}}}_{{-{2:.0f}}}$ K, $R={3:.2f}^{{+{4:.2f}}}_{{-{5:.2f}}}$ $R_{{\odot}}$".format(*param2),color="red")
+        label=r"$T={0:.0f}^{{+{1:.0f}}}_{{-{2:.0f}}}$ K, $R={3:.2f}^{{+{4:.2f}}}_{{-{5:.2f}}}$ $R_{{\odot}}$".format(*param1),color="red")
         sns.lineplot(x=wave.flatten()/10**4,y=np.log10(flux2.flatten()*wave.flatten()),ax=ax,
-        label=r"$T={0:.0f}^{{+{1:.0f}}}_{{-{2:.0f}}}$ K, $R={3:.2f}^{{+{4:.2f}}}_{{-{5:.2f}}}$ $R_{{\odot}}$".format(*param1),color="yellow")
+        label=r"$T={0:.0f}^{{+{1:.0f}}}_{{-{2:.0f}}}$ K, $R={3:.2f}^{{+{4:.2f}}}_{{-{5:.2f}}}$ $R_{{\odot}}$".format(*param2),color="yellow")
         sns.lineplot(x=wave.flatten()/10**4,y=np.log10((flux1+flux2).flatten()*wave.flatten()),ax=ax,
         label="combined",color="grey")
         
@@ -905,8 +1041,15 @@ class Star:
         ax.set_ylabel(r'log $\lambda F_{\lambda}$ (erg cm$^{-2}$s$^{-1}$)')
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
         plt.title(self.name)
-        plt.figtext(0.25,0.05,"BIC: {0:.1f}".format(self.bicd))
-        plt.figtext(0.75,0.05,"$d={0:.1f}$ kpc".format(np.median(d_samples)))
+        plt.figtext(0.2,0.05,"BIC: {0:.1f}".format(self.bicd))
+        if self.EBV is None:
+            high=0.05
+        else:
+            high=0.1
+        plt.figtext(0.65,high,"$d={0:.2f}^{{+{1:.2f}}}_{{-{2:.2f}}}$ kpc".format(np.median(d_samples),
+                np.quantile(d_samples,0.84)-np.median(d_samples),
+                np.median(d_samples)-np.quantile(d_samples,0.16)
+            ))
         plt.tight_layout()
         plt.savefig(self.name+"_double_emcee.png",dpi=500)
         print("parameters:",self.par_double)
