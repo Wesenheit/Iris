@@ -15,11 +15,10 @@ t=Star(name,ra=ra,dec=dec,catalog=orginal_data)
 t.dis_norm=2
 t.get_parallax()
 t.get_all(False)
-t.delete("WISE_RSR_W4")
-t.prepare_data()
-t.list_filters()
-t.set_EBV(0.299) # from orginal paper
-t.gp=4.5
-t.run_chain_simple(3000,200,16)
-t.plot_dist_simple()
-t.plot_corner_simple()
+import json
+data_dic={}
+for name,val in zip(t.filters,t.ampl):
+    data_dic[name]=val
+data_dic["EBV"]=0.3
+with open("GAIA_BH1.json","w") as f:
+    f.write(json.dumps(data_dic))

@@ -74,65 +74,8 @@ def get_SWIFT(name):
     trans=np.loadtxt(directory.joinpath("Swift_UVOT."+name+".dat"), unpack=True, usecols=[1], dtype=float)/100
     return Filter(wave,trans,name="SWIFT_"+name,unit='Angstrom')
 
-con={
-    "J_2MASS":"2MASS_J",
-    "H_2MASS":"2MASS_H",
-    "K_2MASS":"2MASS_Ks",
-    "J":"GROUND_BESSELL_J",
-    "H":"GROUND_BESSELL_H",
-    "K":"GROUND_BESSELL_K",
-    "3.6":"SPITZER_IRAC_36",
-    "4.5":"SPITZER_IRAC_45",
-    "5.8":"SPITZER_IRAC_58",
-    "8.0":"SPITZER_IRAC_80",
-    "I":"GROUND_COUSINS_I",
-    "V":"GROUND_JOHNSON_V",
-    "g_SM":"SkyMapper_g",
-    "r_SM":"SkyMapper_r",
-    "i_SM":"SkyMapper_i",
-    "z_SM":"SkyMapper_z",
-    "u_SM":"SkyMapper_u",
-    "v_SM":"SkyMapper_v",
-    "B":"GROUND_JOHNSON_B",
-    "U":"GROUND_JOHNSON_U",
-    "G_Gaia":"GaiaDR2_G",
-    "RP_Gaia":"GaiaDR2_RP",
-    "BP_Gaia":"GaiaDR2_BP",
-    "W1":"WISE_RSR_W1",
-    "W2":"WISE_RSR_W2",
-    "W3":"WISE_RSR_W3",
-    "W4":"WISE_RSR_W4",
-    "R":"GROUND_COUSINS_R",
-    "g_PS1":"PS1_g",
-    "i_PS1":"PS1_i",
-    "z_PS1":"PS1_z",
-    "r_PS1":"PS1_r",
-    "y_PS1":"PS1_y",
-    "T_TESS":"TESS",
-    "FUV":"GALEX_FUV",
-    "NUV":"GALEX_NUV"
-}
-#AB=["NUV","FUV","i_PS1","z_PS1","g_PS1","r_PS1","g_SM","r_SM","i_SM","u_SM","v_SM","z_SM","UVM2","UVW1","UVW2","SDSS_g","SDSS_r","SDSS_i"]
-AB=["GALEX_NUV","GALEX_FUV","PS1_g","PS1_i","PS1_z","PS1_r","PS1_y","SkyMapper_g","SkyMapper_r","SkyMapper_i","SkyMapper_z","SkyMapper_u","SkyMapper_v",
-"UVM2","UVW1","UVW2","SDSS_g","SDSS_r","SDSS_i","SWIFT_UVM2","SWIFT_UVW2","SWIFT_UVW1"]
-OTHER={}
-OTHER["K_VISTA"]=get_Vista("Ks")
-OTHER["Z_VISTA"]=get_Vista("Z")
-OTHER["Y_VISTA"]=get_Vista("Y")
-OTHER["J_VISTA"]=get_Vista("J")
-OTHER["H_VISTA"]=get_Vista("H")
-OTHER["UVM2"]=get_xmm("UVM2")
-OTHER["UVW2"]=get_xmm("UVW2")
-OTHER["UVW1"]=get_xmm("UVW1")
-OTHER["SWIFT_UVM2"]=get_SWIFT("UVM2")
-OTHER["SWIFT_UVW2"]=get_SWIFT("UVW2")
-OTHER["SWIFT_UVW1"]=get_SWIFT("UVW1")
-OTHER["DENIS_I"]=get_Denis("I")
-OTHER["DENIS_J"]=get_Denis("J")
-OTHER["DENIS_Ks"]=get_Denis("Ks")
-OTHER["H_IRSF"]=get_IRSF("H")
-OTHER["Ks_IRSF"]=get_IRSF("Ks")
-OTHER["J_IRSF"]=get_IRSF("J")
+
+
 
 
 class Star:
@@ -163,16 +106,77 @@ class Star:
         self.catalogs=catalog               #catalog in the specified format to search Vizier
         self.EBV=E_B_V                      #E(B-V), used to include extinction using 
         self.Z=Z                            #metalicity
-        self.par_single=np.zeros(3)         #parameters of single sample
+        self.par_single=None                #parameters of single sample
         self.par_single_container=None      #container for values
-        self.par_double=np.zeros(5)         #parameters of double sample
+        self.par_double=None                #parameters of double sample
         self.par_double_container=None      #container for values
         self.lib_stell=BaSeL()              #what library to use
 
         self.lib_phot=pyphot.get_library()
-        self.gp=2
+        self.gp=4
         self.g1=4
         self.g2=2
+        self.AB=["GALEX_NUV","GALEX_FUV","PS1_g","PS1_i","PS1_z","PS1_r","PS1_y","SkyMapper_g","SkyMapper_r","SkyMapper_i","SkyMapper_z","SkyMapper_u","SkyMapper_v",
+        "UVM2","UVW1","UVW2","SDSS_g","SDSS_r","SDSS_i","SWIFT_UVM2","SWIFT_UVW2","SWIFT_UVW1"]
+        OTHER={}
+        OTHER["K_VISTA"]=get_Vista("Ks")
+        OTHER["Z_VISTA"]=get_Vista("Z")
+        OTHER["Y_VISTA"]=get_Vista("Y")
+        OTHER["J_VISTA"]=get_Vista("J")
+        OTHER["H_VISTA"]=get_Vista("H")
+        OTHER["UVM2"]=get_xmm("UVM2")
+        OTHER["UVW2"]=get_xmm("UVW2")
+        OTHER["UVW1"]=get_xmm("UVW1")
+        OTHER["SWIFT_UVM2"]=get_SWIFT("UVM2")
+        OTHER["SWIFT_UVW2"]=get_SWIFT("UVW2")
+        OTHER["SWIFT_UVW1"]=get_SWIFT("UVW1")
+        OTHER["DENIS_I"]=get_Denis("I")
+        OTHER["DENIS_J"]=get_Denis("J")
+        OTHER["DENIS_Ks"]=get_Denis("Ks")
+        OTHER["H_IRSF"]=get_IRSF("H")
+        OTHER["Ks_IRSF"]=get_IRSF("Ks")
+        OTHER["J_IRSF"]=get_IRSF("J")
+        self.OTHER=OTHER
+
+        self.con={
+        "J_2MASS":"2MASS_J",
+        "H_2MASS":"2MASS_H",
+        "K_2MASS":"2MASS_Ks",
+        "J":"GROUND_BESSELL_J",
+        "H":"GROUND_BESSELL_H",
+        "K":"GROUND_BESSELL_K",
+        "3.6":"SPITZER_IRAC_36",
+        "4.5":"SPITZER_IRAC_45",
+        "5.8":"SPITZER_IRAC_58",
+        "8.0":"SPITZER_IRAC_80",
+        "I":"GROUND_COUSINS_I",
+        "V":"GROUND_JOHNSON_V",
+        "g_SM":"SkyMapper_g",
+        "r_SM":"SkyMapper_r",
+        "i_SM":"SkyMapper_i",
+        "z_SM":"SkyMapper_z",
+        "u_SM":"SkyMapper_u",
+        "v_SM":"SkyMapper_v",
+        "B":"GROUND_JOHNSON_B",
+        "U":"GROUND_JOHNSON_U",
+        "G_Gaia":"GaiaDR2_G",
+        "RP_Gaia":"GaiaDR2_RP",
+        "BP_Gaia":"GaiaDR2_BP",
+        "W1":"WISE_RSR_W1",
+        "W2":"WISE_RSR_W2",
+        "W3":"WISE_RSR_W3",
+        "W4":"WISE_RSR_W4",
+        "R":"GROUND_COUSINS_R",
+        "g_PS1":"PS1_g",
+        "i_PS1":"PS1_i",
+        "z_PS1":"PS1_z",
+        "r_PS1":"PS1_r",
+        "y_PS1":"PS1_y",
+        "T_TESS":"TESS",
+        "FUV":"GALEX_FUV",
+        "NUV":"GALEX_NUV"
+        }
+
         """
         DATA DOWNLOAD UTILS
         #########################################################################################################################
@@ -217,20 +221,20 @@ class Star:
                     print("Something missing in {}!".format(name))
                 else:
                     err=0 if str(file[num][self.catalogs[name][0][2*i+1]])=="nan" else float(file[num][self.catalogs[name][0][2*i+1]])
-                    name_new=con[(self.catalogs[name][1])[i]] if (self.catalogs[name][1])[i] in con else (self.catalogs[name][1])[i]
+                    name_new=self.con[(self.catalogs[name][1])[i]] if (self.catalogs[name][1])[i] in self.con else (self.catalogs[name][1])[i]
                     if name_new not in self.filters:
-                        name_new=con[(self.catalogs[name][1])[i]] if (self.catalogs[name][1])[i] in con else (self.catalogs[name][1])[i]
+                        name_new=self.con[(self.catalogs[name][1])[i]] if (self.catalogs[name][1])[i] in self.con else (self.catalogs[name][1])[i]
                         self.filters=np.append(self.filters,name_new)
                         self.ampl=np.append(self.ampl,float(file[num][self.catalogs[name][0][2*i]]))
                         self.err=np.append(self.err,err)
         else:
             print("no files found")
 
-    def get_photo(self,name,num=0):
+    def get_photo(self,name,num=0,**kwargs):
         if self.catalogs==None:
             print("No catalog found!")
             return
-        v=Vizier(columns=self.catalogs[name][0])
+        v=Vizier(columns=self.catalogs[name][0],**kwargs)
         result = v.query_region(coords.SkyCoord(ra=self.ra, dec=self.dec,
                                             unit=(u.deg, u.deg),
                                             frame='icrs'),
@@ -244,7 +248,7 @@ class Star:
                     print("Something missing in {}!".format(name))
                 else:
                     err=0 if str(file[num][2*i+1])=="--" else float(file[num][2*i+1])
-                    name_new=con[(self.catalogs[name][1])[i]] if (self.catalogs[name][1])[i] in con else (self.catalogs[name][1])[i]
+                    name_new=self.con[(self.catalogs[name][1])[i]] if (self.catalogs[name][1])[i] in self.con else (self.catalogs[name][1])[i]
                     if name_new not in self.filters:
                         self.filters=np.append(self.filters,name_new)
                         self.ampl=np.append(self.ampl,float(file[num][2*i]))
@@ -274,7 +278,7 @@ class Star:
         self.filters=self.filters[np.logical_not(temp)]
         self.err=self.err[np.logical_not(temp)]
 
-    def get_all(self,get_SMDR2=True):
+    def get_all(self,get_SMDR2=True,**kwargs):
         """
         use provided catalogs to find data
         """
@@ -284,7 +288,7 @@ class Star:
         if get_SMDR2:
             self.get_SMdr2()
         for name in self.catalogs:
-            self.get_photo(name)
+            self.get_photo(name,**kwargs)
         if len(self.ampl)<10:
             warnings.warn("less then 10 points",Warning)
 
@@ -314,8 +318,8 @@ class Star:
             try:
                 f=self.lib_phot[i]
             except tables.exceptions.NoSuchNodeError:
-                f=OTHER[i]
-            if i in AB:
+                f=self.OTHER[i]
+            if i in self.AB:
                 self.zerop.append(f.AB_zero_mag)
             else:
                 self.zerop.append(f.Vega_zero_mag)
@@ -324,13 +328,13 @@ class Star:
             try:
                 self.fil_obj.append(self.lib_phot[self.filters[i]])
             except tables.exceptions.NoSuchNodeError:
-                self.fil_obj.append(OTHER[self.filters[i]])
+                self.fil_obj.append(self.OTHER[self.filters[i]])
     
-    def get_parallax(self,show=True,ratio=3):
+    def get_parallax(self,show=True,ratio=3,**kwargs):
         """
         get parallax using Gaia DR3
         """
-        v=Vizier(columns=["Plx","e_Plx"])
+        v=Vizier(columns=["Plx","e_Plx"],**kwargs)
         result = v.query_region(coords.SkyCoord(ra=self.ra, dec=self.dec,
                                             unit=(u.deg, u.deg),
                                             frame='icrs'),
@@ -357,11 +361,11 @@ class Star:
             self.plx=None
             self.e_plx=None
 
-    def get_pos_gaia(self,show=True):
+    def get_pos_gaia(self,show=True,**kwargs):
         """
         get position using Gaia DR3
         """
-        v=Vizier(columns=["RA_ICRS","DE_ICRS"])
+        v=Vizier(columns=["RA_ICRS","DE_ICRS"],**kwargs)
         result = v.query_region(coords.SkyCoord(ra=self.ra, dec=self.dec,
                                             unit=(u.deg, u.deg),
                                             frame='icrs'),
@@ -415,9 +419,9 @@ class Star:
         """
         manually add observation
         """
-        self.filters.append(name)
-        self.ampl.append(ampl)
-        self.err.append(err)
+        self.filters=np.append(self.filters,self.con[name] if name in self.con else name)
+        self.ampl=np.append(self.ampl,ampl)
+        self.err=np.append(self.err,err)
 
     def get_EBV_TIC(self):
         """
@@ -441,7 +445,7 @@ class Star:
 
     def list_filters(self):
         for i in range(len(self.filters)):
-            print(self.filters[i],self.ampl[i],self.err[i])
+            print("{} {:.5g} {:.2g}".format(self.filters[i],self.ampl[i],self.err[i]))
 
     """
     MCMC ROUTINES
@@ -463,16 +467,16 @@ class Star:
         for i in range(len(list_filters)):
             try:
                 val=(self.lib_phot[list_filters[i]].get_flux(np.array(self.lib_stell.wavelength)*unit['AA'],np.array(stell)*unit['flam']))
-                if list_filters[i] in AB:
+                if list_filters[i] in self.AB:
                     pred[i]=-2.5*np.log10(val.value)-self.lib_phot[list_filters[i]].AB_zero_mag
                 else:
                     pred[i]=-2.5*np.log10(val.value)-self.lib_phot[list_filters[i]].Vega_zero_mag
             except AttributeError:
-                val=(OTHER[list_filters[i]].get_flux(np.array(self.lib_stell.wavelength)*unit['AA'],np.array(stell)*unit['flam']))
-                if list_filters[i] in AB:
-                    pred[i]=-2.5*np.log10(val)-OTHER[list_filters[i]].AB_zero_mag
+                val=(self.OTHER[list_filters[i]].get_flux(np.array(self.lib_stell.wavelength)*unit['AA'],np.array(stell)*unit['flam']))
+                if list_filters[i] in self.AB:
+                    pred[i]=-2.5*np.log10(val)-self.OTHER[list_filters[i]].AB_zero_mag
                 else:
-                    pred[i]=-2.5*np.log10(val)-OTHER[list_filters[i]].Vega_zero_mag
+                    pred[i]=-2.5*np.log10(val)-self.OTHER[list_filters[i]].Vega_zero_mag
         return pred
 
     def predict_double(self,list_filters):
@@ -491,29 +495,42 @@ class Star:
         for i in range(len(list_filters)):
             try:
                 val=(self.lib_phot[list_filters[i]].get_flux(np.array(self.lib_stell.wavelength)*unit['AA'],np.array(stell)*unit['flam']))
-                if list_filters[i] in AB:
+                if list_filters[i] in self.AB:
                     pred[i]=-2.5*np.log10(val.value)-self.lib_phot[list_filters[i]].AB_zero_mag
                 else:
                     pred[i]=-2.5*np.log10(val.value)-self.lib_phot[list_filters[i]].Vega_zero_mag
             except AttributeError:
-                val=(OTHER[list_filters[i]].get_flux(np.array(self.lib_stell.wavelength)*unit['AA'],np.array(stell)*unit['flam']))
-                if list_filters[i] in AB:
-                    pred[i]=-2.5*np.log10(val)-OTHER[list_filters[i]].AB_zero_mag
+                val=(self.OTHER[list_filters[i]].get_flux(np.array(self.lib_stell.wavelength)*unit['AA'],np.array(stell)*unit['flam']))
+                if list_filters[i] in self.AB:
+                    pred[i]=-2.5*np.log10(val)-self.OTHER[list_filters[i]].AB_zero_mag
                 else:
-                    pred[i]=-2.5*np.log10(val)-OTHER[list_filters[i]].Vega_zero_mag
+                    pred[i]=-2.5*np.log10(val)-self.OTHER[list_filters[i]].Vega_zero_mag
         return pred
 
-    def get_log_prob_simple(self,i):
+    def get_log_prob_simple(self,i,use_Z=False):
         """
         log prob of observations giving single star model
         """
-        logT,logL,d_p=i
+
+        if i.shape[0]>3:
+            if use_Z:
+                logT,logL,d_p,Z=i
+                g = self.gp
+            else:
+                logT,logL,d_p,g = i
+                logT_low,logT_high = self.get_boundaries(g)
+                logT = logT*(logT_high-logT_low)+logT_low
+                Z = self.Z
+        else:
+            logT,logL,d_p=i
+            g=self.gp
+            Z = self.Z
         if self.use_parallax:
             d=1/d_p
         else:
             d=d_p
         pred=np.zeros(len(self.ampl))
-        stell=self.lib_stell.generate_stellar_spectrum(logT,self.gp,logL,self.Z)/(4*math.pi*d**2*kpc**2)
+        stell=self.lib_stell.generate_stellar_spectrum(logT,g,logL,Z)/(4*math.pi*d**2*kpc**2)
         if self.EBV!=None:
             stell=np.power(10,-0.4*self.ext)*stell
         for i in range(len(self.ampl)):
@@ -584,10 +601,18 @@ class Star:
         """
         get bic value for double star model
         """
-        if self.use_parallax:
-            stell=self.lib_stell.generate_stellar_spectrum(self.par_single[0],self.gp,self.par_single[1],self.Z)*self.par_single[2]**2/(4*math.pi*kpc**2)
+        if self.gp is None:
+            g=self.par_single[3]
         else:
-            stell=self.lib_stell.generate_stellar_spectrum(self.par_single[0],self.gp,self.par_single[1],self.Z)/(4*math.pi*self.par_single[2]**2*kpc**2)
+            g=self.gp
+        if self.Z is None:
+            Z=self.par_single[3]
+        else:
+            Z=self.Z
+        if self.use_parallax:
+            stell=self.lib_stell.generate_stellar_spectrum(self.par_single[0],g,self.par_single[1],Z)*self.par_single[2]**2/(4*math.pi*kpc**2)
+        else:
+            stell=self.lib_stell.generate_stellar_spectrum(self.par_single[0],g,self.par_single[1],Z)/(4*math.pi*self.par_single[2]**2*kpc**2)
         if self.EBV!=None:
             stell=np.power(10,-0.4*self.ext)*stell
         pred=np.zeros(len(self.ampl))
@@ -604,7 +629,7 @@ class Star:
         self.bic_simple=bic
 
     def run_chain_double(self,num_step:int,num_burn:int,n:int,
-                         progress:Optional[bool]=True,use_simple_res:Optional[bool]=False):
+                         progress:Optional[bool]=True,use_simple_res:Optional[bool]=False,loglrange=(-3,5)):
         """
         run chain for double star model
         num_step - number of steps
@@ -613,13 +638,16 @@ class Star:
         progress - progres bar
         use_simple_res - whether to use values for single star model as starting point
         """
-        start=np.repeat(np.array([[self.par_single[0],self.par_single[1],0,0,self.d]]),n,axis=0)
+        logl_low,logl_high=loglrange
+        start=np.zeros([n,5])
         start[:,2]=self.to_temp(np.random.rand(n),self.g2)
-        start[:,3]=np.random.rand(n)*8-3.
+        start[:,3]=np.random.rand(n)*(logl_high-logl_low)+logl_low
         if not use_simple_res:
             start[:,0]=self.to_temp(np.random.rand(n),self.g1)
-            start[:,1]=np.random.rand(n)*8-3.
+            start[:,1]=np.random.rand(n)*(logl_high-logl_low)+logl_low
         else:
+            start[:,0]=self.par_single[0]
+            start[:,1]=self.par_single[1]
             start[:,0]+=np.random.randn(n)*0.01
             start[:,1]+=np.random.randn(n)*0.01
         if self.use_parallax:
@@ -678,30 +706,38 @@ class Star:
         self.log_prob_chainp=sampler.get_log_prob(flat=True,discard=num_burn)
 
     
-    def run_chain_simple(self,num_step,num_burn,n,progress=True,T=None):
+    def run_chain_simple(self,num_step,num_burn,n,progress=True,LogL_range=(-3,5),start=None,rerun=False):
+        logl_low,logl_high=LogL_range
         logT_low,logT_high=self.get_boundaries(self.gp)
-        bijector_list_sig=[Sigmoid(logT_low,logT_high),Sigmoid(-3,5),Exp()]
+        bijector_list_sig=[Sigmoid(logT_low,logT_high),Sigmoid(logl_low,logl_high),Exp()]
         sampler = emcee.EnsembleSampler(
             n, 3, (biject(bijector_list_sig))(self.get_log_prob_simple)
             )
 
-        start=np.zeros([n,3])
-        if T is not None:
-            T=0 if T<0 else T
-            start_temp=np.log10(T)
-            print("starting temprature", T,start_temp)
-            start[:,0]=np.random.randn(1,n)*0.01+start_temp
+        if start is None:
+            start=np.zeros([n,3])
+            start[:,0]=np.random.rand(n)*(logT_high-logT_low)+logT_low
+            start[:,1]=np.random.rand(1,n)*(logl_high-logl_low)+logl_low
+            if self.use_parallax:
+                start[:,2]=np.random.randn(n)*self.e_plx+self.plx
+            else:
+                start[:,2]=np.random.randn(n)*self.d_err+self.d
         else:
-            print("temprature estimate not found")
-            start[:,0]=self.to_temp(np.random.rand(n),self.gp)
-        start[:,1]=np.random.rand(1,n)*8-3
-        if self.use_parallax:
-            start[:,2]=np.random.randn(n)*self.e_plx+self.plx
-        else:
-            start[:,2]=np.random.randn(n)*self.d_err+self.d
+            if len(start.shape)==1:
+                start=np.repeat(np.array([start]),n,axis=0)+np.random.randn(n,3)*0.01
         print("starting conditions:", start)
         start_tf=transform(start,bijector_list_sig)
         sampler.run_mcmc(start_tf, num_step+num_burn, progress=progress)
+        if rerun:
+            temp=untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_sig)
+            temp_tran=np.unique(temp,axis=0)
+            print("sampling new starting conditions")
+            id = np.random.permutation(len(temp_tran))[:n]
+            new_start = temp_tran[id] + np.random.randn(n,3) * 0.001
+            print("new starting conditions:")
+            print(new_start)
+            sampler.reset()
+            sampler.run_mcmc(transform(new_start,bijector_list_sig), num_step, progress=progress)
         print("acceptance ratio",np.mean(sampler.acceptance_fraction))
         states=untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_sig)
         logT_samples,logL_samples,val_samples=states.T
@@ -711,50 +747,93 @@ class Star:
         print("parameters:",self.par_single)
         self.log_prob_chain=sampler.get_log_prob(flat=True,discard=num_burn)
 
-    def rerun_chain_simple(self,num_step,num_burn,n,progress=True,T=None,max_prob=False):
-        logT_low,logT_high=self.get_boundaries(self.gp)
-        bijector_list_sig=[Sigmoid(logT_low,logT_high),Sigmoid(-3,5),Exp()]
+    def run_chain_simple_with_g(self,num_step,num_burn,n,g_range,progress=True,LogL_range=(-3,5),start=None,rerun=False):
+        logl_low,logl_high=LogL_range
+        g_low,g_high=g_range
+        self.gp=None
+        bijector_list_sig=[Sigmoid(0,1),Sigmoid(logl_low,logl_high),Exp(),Sigmoid(g_low,g_high)]
         sampler = emcee.EnsembleSampler(
-            n, 3, (biject(bijector_list_sig))(self.get_log_prob_simple)
+            n, 4, (biject(bijector_list_sig))(self.get_log_prob_simple)
             )
-        start=np.zeros([n,3])
-        if T is not None:
-            T=0 if T<0 else T
-            start_temp=np.log10(T)
-            print("starting temprature", T,start_temp)
-            start[:,0]=np.random.randn(1,n)*0.01+start_temp
+        if start is None:
+            start=np.zeros([n,4])
+            start[:,0]=np.random.rand(n)
+            start[:,1]=np.random.rand(1,n)*(logl_high-logl_low)+logl_low
+            if self.use_parallax:
+                start[:,2]=np.random.randn(n)*self.e_plx+self.plx
+            else:
+                start[:,2]=np.random.randn(n)*self.d_err+self.d
+            start[:,3]=np.random.rand(n)*(g_high-g_low)+g_low
         else:
-            print("temprature estimate not found")
-            start[:,0]=self.to_temp(np.random.rand(n),self.gp)
-        start[:,1]=np.random.rand(1,n)*8-3
-        if self.use_parallax:
-            start[:,2]=np.random.randn(n)*self.e_plx+self.plx
-        else:
-            start[:,2]=np.random.randn(n)*self.d_err+self.d
+            if len(start.shape)==1:
+                logT_low,logT_high=self.get_boundaries(start[3])
+                start[0]=(start[0]-logT_low)/(logT_high-logT_low)
+                start=np.repeat(np.array([start]),n,axis=0)+np.random.randn(n,4)*0.01
         print("starting conditions:", start)
         start_tf=transform(start,bijector_list_sig)
         sampler.run_mcmc(start_tf, num_step+num_burn, progress=progress)
-        print("inital acceptance ratio",np.mean(sampler.acceptance_fraction))
-        temp=untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_sig)
-        if max_prob:
-            print("using maximum log prob to start")
-            log_probs=sampler.get_log_prob(flat=True,discard=num_burn)
-            log_probs_tranc=np.unique(log_probs)
+        print("acceptance ratio",np.mean(sampler.acceptance_fraction))
+        if rerun:
+            temp=untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_sig)
             temp_tran=np.unique(temp,axis=0)
-            idx = (-log_probs_tranc).argsort()[:n]
-            new_start=temp_tran[idx]+0.01 * np.random.randn(n, 3)
-        else:
             print("sampling new starting conditions")
             id = np.random.permutation(len(temp_tran))[:n]
-            new_start = temp_tran[id] + np.random.randn(n,3) * 0.01
-        print("new starting conditions:")
-        print(new_start)
-        sampler.reset()
-        sampler.run_mcmc(transform(new_start,bijector_list_sig), num_step, progress=progress)
-        print("acceptence ratio",np.mean(sampler.acceptance_fraction))
+            new_start = temp_tran[id] + np.random.randn(n,4) * 0.01
+            print("new starting conditions:")
+            print(new_start)
+            sampler.reset()
+            sampler.run_mcmc(transform(new_start,bijector_list_sig), num_step, progress=progress)
         states=untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_sig)
-        logT_samples,logL_samples,val_samples=states.T
-        self.par_single=[np.median(logT_samples),np.median(logL_samples),np.median(val_samples)]
+        for i in range(states.shape[0]):
+            logT_low,logT_high=self.get_boundaries(states[i][3])
+            states[i][0]=states[i][0]*(logT_high-logT_low)+logT_low
+        self.par_single=np.median(states,0)
+        self.par_single_container=states.T
+        self.get_bic_simple()
+        print("parameters:",self.par_single)
+        self.log_prob_chain=sampler.get_log_prob(flat=True,discard=num_burn)
+
+
+    def run_chain_simple_with_Z(self,num_step,num_burn,n,Z_range,progress=True,LogL_range=(-3,5),start=None,rerun=False):
+        logl_low,logl_high=LogL_range
+        z_low,z_high=Z_range
+        logT_low,logT_high=self.get_boundaries(self.gp)
+        Z_start=self.Z
+        self.Z=None
+        bijector_list_sig=[Sigmoid(logT_low,logT_high),Sigmoid(logl_low,logl_high),Exp(),Sigmoid(z_low,z_high)]
+        sampler = emcee.EnsembleSampler(
+            n, 4, (biject(bijector_list_sig))(self.get_log_prob_simple),
+            kwargs={"use_Z":True}
+            )
+        if start is None:
+            start=np.zeros([n,4])
+            start[:,0]=np.random.rand(n)*(logT_high-logT_low)+logT_low
+            start[:,1]=np.random.rand(1,n)*(logl_high-logl_low)+logl_low
+            if self.use_parallax:
+                start[:,2]=np.random.randn(n)*self.e_plx+self.plx
+            else:
+                start[:,2]=np.random.randn(n)*self.d_err+self.d
+            start[:,3]=Z_start*(1+np.random.randn(n)/20)     #np.random.rand(n)*(z_high-z_low)+z_low
+        else:
+            if len(start.shape)==1:
+                logT_low,logT_high=self.get_boundaries(start[3])
+                start=np.repeat(np.array([start]),n,axis=0)+np.random.randn(n,4)*0.01
+        print("starting conditions:", start)
+        start_tf=transform(start,bijector_list_sig)
+        sampler.run_mcmc(start_tf, num_step+num_burn, progress=progress)
+        print("acceptance ratio",np.mean(sampler.acceptance_fraction))
+        if rerun:
+            temp=untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_sig)
+            temp_tran=np.unique(temp,axis=0)
+            print("sampling new starting conditions")
+            id = np.random.permutation(len(temp_tran))[:n]
+            new_start = temp_tran[id] + np.random.randn(n,4) * 0.001
+            print("new starting conditions:")
+            print(new_start)
+            sampler.reset()
+            sampler.run_mcmc(transform(new_start,bijector_list_sig), num_step, progress=progress)
+        states=untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_sig)
+        self.par_single=np.median(states,0)
         self.par_single_container=states.T
         self.get_bic_simple()
         print("parameters:",self.par_single)
@@ -764,23 +843,25 @@ class Star:
     def rerun_chain_double(self,num_step:int,num_burn:int,n:int,
                            progress:Optional[bool]=True,
                            max_prob:Optional[bool]=False,
-                           use_simple_res:Optional[bool]=False):
-        start=np.repeat(np.array([[self.par_single[0],self.par_single[1],0,0,0]]),n,axis=0)
+                           use_simple_res:Optional[bool]=False,
+                           loglrange=(-3,5)):
+        start=np.zeros([n,5])
+        logl_low,logl_high=loglrange
         if use_simple_res:
             start[:,0]=np.random.randn(n)*0.001+start[:,0]
             start[:,1]=np.random.randn(n)*0.001+start[:,1]
         else:
             start[:,0]=self.to_temp(np.random.rand(n),self.g1)
-            start[:,1]=np.random.rand(n)*8-3
+            start[:,1]=np.random.rand(n)*(logl_high-logl_low)+logl_low
         start[:,2]=self.to_temp(np.random.rand(n),self.g2)
-        start[:,3]=np.random.rand(n)*8-3
+        start[:,3]=np.random.rand(n)*(logl_high-logl_low)+logl_low
         if self.use_parallax:
             start[:,4]=np.random.randn(n)*self.e_plx+self.plx
         else:
             start[:,4]=np.random.randn(n)*self.d_err+self.d
         logT1_low,logT1_high=self.get_boundaries(self.g1)
         logT2_low,logT2_high=self.get_boundaries(self.g2)
-        bijector_list_double=[Sigmoid(logT1_low,logT1_high),Sigmoid(-3,5),Sigmoid(logT2_low,logT2_high),Sigmoid(-3,5),Exp()]
+        bijector_list_double=[Sigmoid(logT1_low,logT1_high),Sigmoid(logl_low,logl_high),Sigmoid(logT2_low,logT2_high),Sigmoid(logl_low,logl_high),Exp()]
 
         sampler = emcee.EnsembleSampler(
             n, 5, (biject(bijector_list_double))(self.get_log_prob_double)
@@ -824,7 +905,7 @@ class Star:
         lamFlam,lamFlam_err = [], []
         fwhm=[]
         for i in range(N):
-            if self.filters[i] in AB:
+            if self.filters[i] in self.AB:
                 AB_if=True
             else:
                 AB_if=False
@@ -860,15 +941,22 @@ class Star:
                 ax.errorbar(x=lam, y=lamF_lam, yerr=lamFlam_err, fmt='o', mfc='navy', color='navy', ms=4, elinewidth=1.5,  capsize=2,label="measurements")
     
     def plot_dist_simple(self,FWHM=False,ax=None):
-        plt.close()
         if ax is None:
             fig = plt.figure(figsize=(6,4))
             ax = plt.axes()
         self.plot_measurments(ax,FWHM)
-        if self.use_parallax:
-            flux=self.lib_stell.generate_stellar_spectrum(self.par_single[0],self.gp,self.par_single[1],self.Z)*self.par_single[2]**2/(4*math.pi*kpc**2)
+        if self.gp is None:
+            g=self.par_single[3]
         else:
-            flux=self.lib_stell.generate_stellar_spectrum(self.par_single[0],self.gp,self.par_single[1],self.Z)/(4*math.pi*self.par_single[2]**2*kpc**2)
+            g=self.gp
+        if self.Z is None:
+            Z=self.par_single[3]
+        else:
+            Z=self.Z
+        if self.use_parallax:
+            flux=self.lib_stell.generate_stellar_spectrum(self.par_single[0],g,self.par_single[1],Z)*self.par_single[2]**2/(4*math.pi*kpc**2)
+        else:
+            flux=self.lib_stell.generate_stellar_spectrum(self.par_single[0],g,self.par_single[1],Z)/(4*math.pi*self.par_single[2]**2*kpc**2)
         if self.EBV!=None:
             flux=np.power(10,-0.4*self.ext)*flux
         r_sample=self.lib_stell.get_radius(self.par_single[1],self.par_single_container[0])
@@ -879,15 +967,25 @@ class Star:
         param=[10**self.par_single[0],10**np.quantile(self.par_single_container[0],0.84)-10**self.par_single[0],10**self.par_single[0]-10**np.quantile(self.par_single_container[0],0.16),
         np.median(d_samples),np.median(r_sample)/Rs,np.quantile(r_sample/Rs,0.84)-np.median(r_sample/Rs),np.median(r_sample)/Rs-np.quantile(r_sample/Rs,0.16),self.Z
         ]
+        if self.Z is not None:
+            label=r"$T={0:.0f}^{{+{1:.0f}}}_{{-{2:.0f}}}$ K, $R={4:.3f}^{{+{5:.2g}}}_{{-{6:.2g}}}$ $R_{{\odot}}$, $Z={7:.3f}$".format(*param)
+        else:
+            new_param=[*param[:-1],self.par_single[3],
+                       np.quantile(self.par_single_container[3],0.84)-np.median(self.par_single_container[3]),self.par_single[3]-np.quantile(self.par_single_container[3],0.16)]
+            label=r"$T={0:.0f}^{{+{1:.0f}}}_{{-{2:.0f}}}$ K, $R={4:.3f}^{{+{5:.2g}}}_{{-{6:.2g}}}$ $R_{{\odot}}$, $Z={7:.4f}^{{+{8:.2g}}}_{{-{9:.2g}}}$".format(*new_param)
         ax.plot(np.array(self.lib_stell.wavelength)/10**4,np.log10(np.array(flux)*np.array(self.lib_stell.wavelength)),
-        label=r"$T={0:.0f}^{{+{1:.0f}}}_{{-{2:.0f}}}$ K, $R={4:.2f}^{{+{5:.2f}}}_{{-{6:.2f}}}$ $R_{{\odot}}$, $Z={7:.3f}$".format(*param),color="orange")
+        label=label,color="orange")
         ax.set_xscale('log')
-        plt.legend()
+        ax.legend()
         ax.set_xlabel(r'$\lambda$ [$\mu\textrm{m}$]')
         ax.set_ylabel(r'log $\lambda F_{\lambda}$ (erg cm$^{-2}$s$^{-1}$)')
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-        plt.title(self.name)
+        ax.set_title(self.name)
         plt.figtext(0.2,0.05,"BIC: {0:.1f}".format(self.bic_simple))
+        if self.gp is None:
+            plt.figtext(0.2,0.1,"$\log(g)={0:.2f}^{{+{2:.2f}}}_{{-{1:.2f}}}$".format(np.median(self.par_single_container[3]),
+                                                                                np.median(self.par_single_container[3])-np.quantile(self.par_single_container[3],0.16),
+                                                                                np.quantile(self.par_single_container[3],0.84)-np.median(self.par_single_container[3])))
         if self.EBV is None:
             high=0.05
         else:
@@ -901,16 +999,10 @@ class Star:
 
     def plot_corner_simple(self,n_l=2.2,bi=20,):
         data=self.par_single_container.T
-        upper=[(n_l+2)/2*np.quantile(self.par_single_container[0],0.84)-np.quantile(self.par_single_container[0],0.16)*n_l/2,
-        (n_l+2)/2*np.quantile(self.par_single_container[1],0.84)-np.quantile(self.par_single_container[1],0.16)*n_l/2,
-        (n_l+2)/2*np.quantile(self.par_single_container[2],0.84)-np.quantile(self.par_single_container[2],0.16)*n_l/2]
-        lower=[(n_l+2)/2*np.quantile(self.par_single_container[0],0.16)-np.quantile(self.par_single_container[0],0.84)*n_l/2,
-        (n_l+2)/2*np.quantile(self.par_single_container[1],0.16)-np.quantile(self.par_single_container[1],0.84)*n_l/2,
-        (n_l+2)/2*np.quantile(self.par_single_container[2],0.16)-np.quantile(self.par_single_container[2],0.84)*n_l/2]
-        upper[0]=min(upper[0],4.6)#+0.01
-        lower[0]=max(lower[0],3.31)#-0.01
-        upper[1]=upper[1]+0.01
-        lower[1]=lower[1]-0.01
+        upper=list(map(lambda x:(n_l+2)/2*np.quantile(x,0.84)-np.quantile(x,0.16)*n_l/2,self.par_single_container))
+        lower=list(map(lambda x:(n_l+2)/2*np.quantile(x,0.16)-np.quantile(x,0.84)*n_l/2,self.par_single_container))
+        bins=list(map(lambda x:int(bi/(upper[x]-lower[x])*(max(self.par_single_container[x])-min(self.par_single_container[x]))),range(len(upper))))
+
         if self.use_parallax:
             labels=[
             r"log $T$",
@@ -923,6 +1015,11 @@ class Star:
             r"log $L$",
             r"$d$",
             ]
+        if len(bins)>3:
+            if self.gp is None:
+                labels.append("log g")
+            else:
+                labels.append("$Z$")
         figure = corner.corner(
             data,
             labels=labels,
@@ -930,13 +1027,11 @@ class Star:
             show_titles=True,
             title_kwargs={"fontsize": 12},
             title_fmt=".3f",
-            bins=[int(bi/(upper[0]-lower[0])*(max(self.par_single_container[0])-min(self.par_single_container[0]))),
-            int(bi/(upper[1]-lower[1])*(max(self.par_single_container[1])-min(self.par_single_container[1]))),
-            int(bi/(upper[2]-lower[2])*(max(self.par_single_container[2])-min(self.par_single_container[2])))]
+            bins=bins
         )
         
-        axes = np.array(figure.axes).reshape((3, 3))
-        for i in range(3):
+        axes = np.array(figure.axes).reshape((len(upper), len(upper)))
+        for i in range(len(upper)):
             for j in range(i+1):
                 ax=axes[i,j]
                 ax.set_xlim(lower[j],upper[j])
@@ -971,9 +1066,9 @@ class Star:
             flux1=np.power(10,-0.4*self.ext)*flux1
             flux2=np.power(10,-0.4*self.ext)*flux2
         ax.plot(np.array(self.lib_stell.wavelength)/10**4,np.log10(np.array(flux2)*np.array(self.lib_stell.wavelength)),
-        label=r"$T={0:.0f}^{{+{1:.0f}}}_{{-{2:.0f}}}$ K, $R={3:.2f}^{{+{4:.2f}}}_{{-{5:.2f}}}$ $R_{{\odot}}$".format(*param2),color="red")
+        label=r"$T={0:.0f}^{{+{1:.0f}}}_{{-{2:.0f}}}$ K, $R={3:.2f}^{{+{4:.2g}}}_{{-{5:.2g}}}$ $R_{{\odot}}$".format(*param2),color="red")
         ax.plot(np.array(self.lib_stell.wavelength)/10**4,np.log10(np.array(flux1)*np.array(self.lib_stell.wavelength)),
-        label=r"$T={0:.0f}^{{+{1:.0f}}}_{{-{2:.0f}}}$ K, $R={3:.2f}^{{+{4:.2f}}}_{{-{5:.2f}}}$ $R_{{\odot}}$".format(*param1),color="yellow")
+        label=r"$T={0:.0f}^{{+{1:.0f}}}_{{-{2:.0f}}}$ K, $R={3:.2f}^{{+{4:.2g}}}_{{-{5:.2g}}}$ $R_{{\odot}}$".format(*param1),color="yellow")
         ax.plot(np.array(self.lib_stell.wavelength)/10**4,np.log10(np.array(flux1+flux2)*np.array(self.lib_stell.wavelength)),label="combined",color="grey")
         
         ax.set_xscale('log')
@@ -996,20 +1091,22 @@ class Star:
         plt.savefig(self.name+"_double_emcee.png",dpi=500)
         print("parameters:",self.par_double)
 
-    def plot_corner_double(self,n_l=2.2,bi=20):
+    def plot_corner_double(self,n_l=2.2,bi=20,):
         data=self.par_double_container.T
         upper=[(n_l+2)/2*np.quantile(self.par_double_container[0],0.84)-np.quantile(self.par_double_container[0],0.16)*n_l/2,(n_l+2)/2*np.quantile(self.par_double_container[1],0.84)-np.quantile(self.par_double_container[1],0.16)*n_l/2,(n_l+2)/2*np.quantile(self.par_double_container[2],0.84)-np.quantile(self.par_double_container[2],0.16)*n_l/2,
         (n_l+2)/2*np.quantile(self.par_double_container[3],0.84)-np.quantile(self.par_double_container[3],0.16)*n_l/2,(n_l+2)/2*np.quantile(self.par_double_container[4],0.84)-np.quantile(self.par_double_container[4],0.16)*n_l/2]
         lower=[(n_l+2)/2*np.quantile(self.par_double_container[0],0.16)-np.quantile(self.par_double_container[0],0.84)*n_l/2,(n_l+2)/2*np.quantile(self.par_double_container[1],0.16)-np.quantile(self.par_double_container[1],0.84)*n_l/2,(n_l+2)/2*np.quantile(self.par_double_container[2],0.16)-np.quantile(self.par_double_container[2],0.84)*n_l/2,
         (n_l+2)/2*np.quantile(self.par_double_container[3],0.16)-np.quantile(self.par_double_container[3],0.84)*n_l/2,(n_l+2)/2*np.quantile(self.par_double_container[4],0.16)-np.quantile(self.par_double_container[4],0.84)*n_l/2]
-        upper[0]=min(upper[0],4.6)
-        upper[1]=min(upper[1],5)
-        upper[2]=min(upper[2],4.21)
-        upper[3]=min(upper[3],5)
-        lower[0]=max(lower[0],3.31)
-        lower[1]=max(lower[1],-3)
-        lower[2]=max(lower[2],3.444)
-        lower[3]=max(lower[3],-3)
+        t_min2,t_max2=self.get_boundaries(self.g2)
+        t_min1,t_max1=self.get_boundaries(self.g1)
+        upper[0]=min(upper[0],t_max1)
+        #upper[1]=min(upper[1],5)
+        upper[2]=min(upper[2],t_max2)
+        #upper[3]=min(upper[3],5)
+        lower[0]=max(lower[0],t_min1)
+        #lower[1]=max(lower[1],-3)
+        lower[2]=max(lower[2],t_min2)
+        #lower[3]=max(lower[3],-3)
         if self.use_parallax:
             labels=[
             r"log $T_1$",
@@ -1026,6 +1123,7 @@ class Star:
             r"log $L_2$",
             r"$d$",
             ]
+        print(lower,upper)
         figure = corner.corner(
             data,
             labels=labels,
@@ -1050,7 +1148,7 @@ class Star:
         figure.suptitle(self.name)
         plt.savefig(self.name+"_double_corner_emcee.png",dpi=500)
 
-    def plot_dist_simple_density(self,num_samples,n_l=2.2,bi=20,FWHM=False):
+    def plot_dist_simple_density(self,num_samples,FWHM=False):
         plt.close()
         fig = plt.figure(figsize=(6,4))
         ax = plt.axes()
@@ -1096,55 +1194,9 @@ class Star:
                 np.median(d_samples)-np.quantile(d_samples,0.16)
             ))
         plt.tight_layout()
-        plt.savefig(self.name+"_simple_emcee.png",dpi=500)
+        plt.savefig(self.name.replace(" ","_")+"_simple_emcee.png",dpi=500)
         print("parameters:",self.par_single)
-        #print("errors:",self.par_single_container)
-        plt.close()
-        data=np.array([[self.par_single_container[0][i],self.par_single_container[1][i],self.par_single_container[2][i]] for i in range(len(self.par_single_container[0]))])
-        print(len(data))
-        upper=[(n_l+2)/2*np.quantile(self.par_single_container[0],0.84)-np.quantile(self.par_single_container[0],0.16)*n_l/2,
-        (n_l+2)/2*np.quantile(self.par_single_container[1],0.84)-np.quantile(self.par_single_container[1],0.16)*n_l/2,
-        (n_l+2)/2*np.quantile(self.par_single_container[2],0.84)-np.quantile(self.par_single_container[2],0.16)*n_l/2]
-        lower=[(n_l+2)/2*np.quantile(self.par_single_container[0],0.16)-np.quantile(self.par_single_container[0],0.84)*n_l/2,
-        (n_l+2)/2*np.quantile(self.par_single_container[1],0.16)-np.quantile(self.par_single_container[1],0.84)*n_l/2,
-        (n_l+2)/2*np.quantile(self.par_single_container[2],0.16)-np.quantile(self.par_single_container[2],0.84)*n_l/2]
-        upper[0]=min(upper[0],4.6)#+0.01
-        lower[0]=max(lower[0],3.31)#-0.01
-        upper[1]=upper[1]+0.01
-        lower[1]=lower[1]-0.01
-        if self.use_parallax:
-            labels=[
-            r"log $T$",
-            r"log $L$",
-            r"$\pi$",
-            ]
-        else:
-            labels=[
-            r"log $T$",
-            r"log $L$",
-            r"$d$",
-            ]
-        figure = corner.corner(
-            data,
-            labels=labels,
-            quantiles=[0.16, 0.5, 0.84],
-            show_titles=True,
-            title_kwargs={"fontsize": 12},
-            title_fmt=".3f",
-            bins=[int(bi/(upper[0]-lower[0])*(max(self.par_single_container[0])-min(self.par_single_container[0]))),
-            int(bi/(upper[1]-lower[1])*(max(self.par_single_container[1])-min(self.par_single_container[1]))),
-            int(bi/(upper[2]-lower[2])*(max(self.par_single_container[2])-min(self.par_single_container[2])))]
-        )
-        axes = np.array(figure.axes).reshape((3, 3))
-        for i in range(3):
-            for j in range(i+1):
-                ax=axes[i,j]
-                ax.set_xlim(lower[j],upper[j])
-                if j<i:
-                    ax.set_ylim(lower[i],upper[i])
-        
-        figure.suptitle(self.name)
-        plt.savefig(self.name+"_simple_corner_emcee.png",dpi=500)
+
 
     def plot_dist_double_density(self,num_samples,n_l=2,bi=8,FWHM=False):
         plt.close()
@@ -1207,66 +1259,16 @@ class Star:
                 np.median(d_samples)-np.quantile(d_samples,0.16)
             ))
         plt.tight_layout()
-        plt.savefig(self.name+"_double_emcee.png",dpi=500)
+        plt.savefig(self.name.replace(" ","_")+"_double_emcee.png",dpi=500)
         print("parameters:",self.par_double)
-        #print("errors:",self.par_double_container)
-        plt.close()
-        data=np.array([[self.par_double_container[0][i],self.par_double_container[1][i],self.par_double_container[2][i],self.par_double_container[3][i],self.par_double_container[4][i]] for i in range(len(self.par_double_container[0]))])
-        upper=[(n_l+2)/2*np.quantile(self.par_double_container[0],0.84)-np.quantile(self.par_double_container[0],0.16)*n_l/2,(n_l+2)/2*np.quantile(self.par_double_container[1],0.84)-np.quantile(self.par_double_container[1],0.16)*n_l/2,(n_l+2)/2*np.quantile(self.par_double_container[2],0.84)-np.quantile(self.par_double_container[2],0.16)*n_l/2,
-        (n_l+2)/2*np.quantile(self.par_double_container[3],0.84)-np.quantile(self.par_double_container[3],0.16)*n_l/2,(n_l+2)/2*np.quantile(self.par_double_container[4],0.84)-np.quantile(self.par_double_container[4],0.16)*n_l/2]
-        lower=[(n_l+2)/2*np.quantile(self.par_double_container[0],0.16)-np.quantile(self.par_double_container[0],0.84)*n_l/2,(n_l+2)/2*np.quantile(self.par_double_container[1],0.16)-np.quantile(self.par_double_container[1],0.84)*n_l/2,(n_l+2)/2*np.quantile(self.par_double_container[2],0.16)-np.quantile(self.par_double_container[2],0.84)*n_l/2,
-        (n_l+2)/2*np.quantile(self.par_double_container[3],0.16)-np.quantile(self.par_double_container[3],0.84)*n_l/2,(n_l+2)/2*np.quantile(self.par_double_container[4],0.16)-np.quantile(self.par_double_container[4],0.84)*n_l/2]
-        upper[0]=min(upper[0],4.6)
-        upper[1]=min(upper[1],5)
-        upper[2]=min(upper[2],4.21)
-        upper[3]=min(upper[3],5)
-        lower[0]=max(lower[0],3.31)
-        lower[1]=max(lower[1],-3)
-        lower[2]=max(lower[2],3.444)
-        lower[3]=max(lower[3],-3)
-        if self.use_parallax:
-            labels=[
-            r"log $T_1$",
-            r"log $L_1$",
-            r"log $T_2$",
-            r"log $L_2$",
-            r"$\pi$",
-            ]
-        else:
-            labels=[
-            r"log $T_1$",
-            r"log $L_1$",
-            r"log $T_2$",
-            r"log $L_2$",
-            r"$d$",
-            ]
-        figure = corner.corner(
-            data,
-            labels=labels,
-            quantiles=[0.16, 0.5, 0.84],
-            show_titles=True,
-            title_kwargs={"fontsize": 12},
-            title_fmt=".3f",
-            bins=[int(bi/(upper[0]-lower[0])*(max(self.par_double_container[0])-min(self.par_double_container[0]))),
-            int(bi/(upper[1]-lower[1])*(max(self.par_double_container[1])-min(self.par_double_container[1]))),
-            int(bi/(upper[2]-lower[2])*(max(self.par_double_container[2])-min(self.par_double_container[2]))),
-            int(bi/(upper[3]-lower[3])*(max(self.par_double_container[3])-min(self.par_double_container[3]))),
-            int(bi/(upper[4]-lower[4])*(max(self.par_double_container[4])-min(self.par_double_container[4])))]
-            )
-            
-        axes = np.array(figure.axes).reshape((5, 5))
-        for i in range(5):
-            for j in range(i+1):
-                ax=axes[i,j]
-                ax.set_xlim(lower[j],upper[j])
-                if j<i:
-                    ax.set_ylim(lower[i],upper[i])
-        figure.suptitle(self.name)
-        plt.savefig(self.name+"_double_corner_emcee.png",dpi=500)
+    
 
     def save(self,name=None):
+        """
+        save parameters of model to h5 file
+        """
         if name is None:
-            name=self.name+".h5"
+            name=self.name.replace(" ","_")+".h5"
         file = h5py.File(name, 'w')
         if self.par_double_container is not None:
             file.create_dataset("double",data=self.par_double)
@@ -1281,14 +1283,19 @@ class Star:
         if self.d is not None:
             file.create_dataset("d",data=np.array([self.d,self.d_err]))
         if self.plx is not None:
-            self.create_dataset("plx",data=np.array([self.plx,self.e_plx]))
-        file.create_dataset("gp",data=(self.gp,))
+            file.create_dataset("plx",data=np.array([self.plx,self.e_plx]))
+        if self.gp is not None:
+            file.create_dataset("gp",data=(self.gp,))
         file.create_dataset("g1",data=(self.g1,))
         file.create_dataset("g2",data=(self.g2,))
-        file.create_dataset("Z",data=(self.Z,))
+        if self.Z is not None:
+            file.create_dataset("Z",data=(self.Z,))
         file.close()
 
     def load(self,name=None):
+        """
+        load chain parameters
+        """
         file = h5py.File(name, 'r')
         if "single" in file.keys():
             self.par_single=np.array(file.get("single"))
@@ -1302,8 +1309,10 @@ class Star:
             self.ampl=np.array(file.get("mag"))
         if "err" in file.keys():
             self.err=np.array(file.get("err"))
-        self.gp=file.get("gp")
+        if "gp" in file.keys():
+            self.gp=file.get("gp")
         self.g1=file.get("g1")
         self.g2=file.get("g2")
-        self.Z=file.get("Z")
+        if "Z" in file.keys():
+            self.gp=file.get("gp")
         file.close()
