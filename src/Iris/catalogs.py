@@ -58,6 +58,7 @@ MagCloud={
 Galactic={
     "I/345/gaia2":[["Gmag","e_Gmag","BPmag","e_BPmag","RPmag","e_RPmag"],
     ["G_Gaia","BP_Gaia","RP_Gaia"],0.3],
+    "V/147/sdss12":[["umag","e_umag","gmag","e_gmag","rmag","e_rmag","imag","e_imag","zmag","e_zmag"],["SDSS_u","SDSS_g","SDSS_r","SDSS_i","SDSS_z"],0.3],
     "II/246/out":[["Hmag","e_Hmag","Kmag","e_Kmag","Jmag","e_Jmag"],
     ["H_2MASS","K_2MASS","J_2MASS"],0.3],
     "II/281/2mass6x":[["Hmag","e_Hmag","Kmag","e_Kmag","Jmag","e_Jmag"],

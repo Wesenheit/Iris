@@ -1,5 +1,6 @@
 import tables
 from pathlib import Path
+from astroquery.mast import Catalogs
 from astroquery.vizier import Vizier
 import astropy.units as u
 import astropy.coordinates as coords
@@ -15,7 +16,6 @@ import corner
 import seaborn as sns
 import extinction
 import emcee
-import pickle
 import pyvo as vo
 from matplotlib.ticker import FormatStrFormatter
 from astropy.coordinates import SkyCoord
@@ -111,13 +111,15 @@ class Star:
         self.par_double=None                #parameters of double sample
         self.par_double_container=None      #container for values
         self.lib_stell=BaSeL()              #what library to use
+        self.fluxes_ = None
+        self.flux_err = None
 
         self.lib_phot=pyphot.get_library()
         self.gp=4
         self.g1=4
         self.g2=2
         self.AB=["GALEX_NUV","GALEX_FUV","PS1_g","PS1_i","PS1_z","PS1_r","PS1_y","SkyMapper_g","SkyMapper_r","SkyMapper_i","SkyMapper_z","SkyMapper_u","SkyMapper_v",
-        "UVM2","UVW1","UVW2","SDSS_g","SDSS_r","SDSS_i","SWIFT_UVM2","SWIFT_UVW2","SWIFT_UVW1"]
+        "UVM2","UVW1","UVW2","SDSS_g","SDSS_r","SDSS_i","SDSS_u","SDSS_z","SWIFT_UVM2","SWIFT_UVW2","SWIFT_UVW1"]
         OTHER={}
         OTHER["K_VISTA"]=get_Vista("Ks")
         OTHER["Z_VISTA"]=get_Vista("Z")
@@ -203,6 +205,33 @@ class Star:
         t_min=np.min(logt_arr[is_in])
         t_max=np.max(logt_arr[is_in])
         return t_min,t_max
+    
+    def get_GALEX(self,num=0):
+        results = Catalogs.query_object(str(self.ra)+" "+str(self.dec), catalog="Galex",radius=u.arcsec*2*self.dis_norm)
+        if len(results)>0:
+            print("Found {} files in GALEX MAST".format(len(results)))
+            try:
+                nuv = float(results["nuv_mag"][num])
+            except:
+                nuv = 0
+            try:
+                n_err = float(results["nuv_magerr"][num])
+            except:
+                n_err = 0
+            try:
+                fuv = float(results["fuv_mag"][num])
+            except:
+                fuv = 0
+            try:
+                f_err = float(results["fuv_magerr"][num])
+            except:
+                f_err = 0
+            if nuv>0:
+                self.add_obs("GALEX_NUV",nuv,n_err)
+            if fuv>0:
+                self.add_obs("GALEX_FUV",fuv,f_err)
+        else:
+            print("No GALEX data in MAST!")
     def get_SMdr2(self,num=0):
         """
         get data from SkyMapper DR2, unfortunately we cannot use Vizier :(
@@ -278,7 +307,7 @@ class Star:
         self.filters=self.filters[np.logical_not(temp)]
         self.err=self.err[np.logical_not(temp)]
 
-    def get_all(self,get_SMDR2=True,**kwargs):
+    def get_all(self,get_SMDR2=True,get_galex_mast=1,**kwargs):
         """
         use provided catalogs to find data
         """
@@ -287,6 +316,8 @@ class Star:
             return
         if get_SMDR2:
             self.get_SMdr2()
+        if get_galex_mast>0:
+            self.get_GALEX(get_galex_mast-1)
         for name in self.catalogs:
             self.get_photo(name,**kwargs)
         if len(self.ampl)<10:
@@ -320,15 +351,18 @@ class Star:
             except tables.exceptions.NoSuchNodeError:
                 f=self.OTHER[i]
             if i in self.AB:
-                self.zerop.append(f.AB_zero_mag)
+                self.zerop.append(f.AB_zero_flux.magnitude)
             else:
-                self.zerop.append(f.Vega_zero_mag)
+                self.zerop.append(f.Vega_zero_flux.magnitude)
         self.fil_obj=[]
         for i in range(len(self.ampl)):
             try:
                 self.fil_obj.append(self.lib_phot[self.filters[i]])
             except tables.exceptions.NoSuchNodeError:
                 self.fil_obj.append(self.OTHER[self.filters[i]])
+        self.zerop = np.array(self.zerop)
+        self.fluxes_ = np.power(10,-0.4*self.ampl)
+        self.err_flux = self.fluxes_ * np.log(10)*0.4*self.err
     
     def get_parallax(self,show=True,ratio=3,**kwargs):
         """
@@ -488,7 +522,7 @@ class Star:
             d=1/self.par_double[4]
         else:
             d=self.par_double[4]
-        stell=(self.lib_stell.generate_stellar_spectrum(self.par_double[0],self.g1,self.par_single[1],self.Z)+
+        stell=(self.lib_stell.generate_stellar_spectrum(self.par_double[0],self.g1,self.par_double[1],self.Z)+
                 self.lib_stell.generate_stellar_spectrum(self.par_double[2],self.g2,self.par_double[3],self.Z))/(4*math.pi*d**2*kpc**2)
         if self.EBV!=None:
             stell=np.power(10,-0.4*self.ext)*stell
@@ -536,20 +570,22 @@ class Star:
         for i in range(len(self.ampl)):
             val=(self.fil_obj[i].get_flux(np.array(self.lib_stell.wavelength)*unit['AA'],np.array(stell)*unit['flam']))
             try:
-                pred[i]=-2.5*np.log10(val.value)-self.zerop[i]
+                pred[i]=val.value/self.zerop[i]
             except AttributeError:
-                pred[i]=-2.5*np.log10(val)-self.zerop[i]
-        return_val= -np.sum((pred-self.ampl)**2/(2*self.err**2))
+                pred[i]=val/self.zerop[i]
+        return_val= -np.sum((pred-self.fluxes_)**2/(2*self.err_flux**2))
         if self.use_parallax:
             return return_val-(d_p-self.plx)**2/(2*self.e_plx**2)
         else:
             return return_val-(d-self.d)**2/(2*self.d_err**2)
 
-    def get_log_prob_double(self,i):
+    def get_log_prob_double(self,i,limit=False):
         """
         log prob of observations given 2 star model
         """
         logT1,logL1,logT2,logL2,d_p=i
+        if limit and logT2>logT1:
+            return -np.inf
         if self.use_parallax:
             d=1/d_p
         else:
@@ -561,10 +597,10 @@ class Star:
         for i in range(len(self.ampl)):
             val=(self.fil_obj[i].get_flux(np.array(self.lib_stell.wavelength)*unit['AA'],np.array(stell)*unit['flam']))
             try:
-                pred[i]=-2.5*np.log10(val.value)-self.zerop[i]
+                pred[i]=val.value/self.zerop[i]
             except AttributeError:
-                pred[i]=-2.5*np.log10(val)-self.zerop[i]
-        return_val= -np.sum((pred-self.ampl)**2/(2*self.err**2))
+                pred[i]=val/self.zerop[i]
+        return_val= -np.sum((pred-self.fluxes_)**2/(2*self.err_flux**2))
         if self.use_parallax:
             return return_val-(d_p-self.plx)**2/(2*self.e_plx**2)
         else:
@@ -589,14 +625,15 @@ class Star:
         for i in range(len(self.ampl)):
             val=(self.fil_obj[i].get_flux(np.array(self.lib_stell.wavelength)*unit['AA'],np.array(stell)*unit['flam']))
             try:
-                pred[i]=-2.5*np.log10(val.value)-self.zerop[i]
+                pred[i]=val.value/self.zerop[i]
             except AttributeError:
-                pred[i]=-2.5*np.log10(val)-self.zerop[i]
-        chi2=np.sum((pred-self.ampl)**2/(self.err**2))
+                pred[i]=val/self.zerop[i]
+        chi2=np.sum((pred-self.fluxes_)**2/(self.err_flux**2))
         bic=chi2+5*np.log(len(self.ampl))
         print("chi2: ",chi2)
         print("BIC: ",bic)
         self.bicd=bic
+        self.chi2d=chi2
     def get_bic_simple(self):
         """
         get bic value for double star model
@@ -619,17 +656,20 @@ class Star:
         for i in range(len(self.ampl)):
             val=(self.fil_obj[i].get_flux(np.array(self.lib_stell.wavelength)*unit['AA'],np.array(stell)*unit['flam']))
             try:
-                pred[i]=-2.5*np.log10(val.value)-self.zerop[i]
+                pred[i]=val.value/self.zerop[i]
             except AttributeError:
-                pred[i]=-2.5*np.log10(val)-self.zerop[i]
-        chi2=np.sum((pred-self.ampl)**2/(self.err**2))
+                pred[i]=val/self.zerop[i]
+        chi2=np.sum((pred-self.fluxes_)**2/(self.err_flux**2))
         bic=chi2+3*np.log(len(self.ampl))
         print("chi2: ",chi2)
         print("BIC: ",bic)
         self.bic_simple=bic
+        self.chis = chi2
 
     def run_chain_double(self,num_step:int,num_burn:int,n:int,
-                         progress:Optional[bool]=True,use_simple_res:Optional[bool]=False,loglrange=(-3,5)):
+                         progress:Optional[bool]=True,use_simple_res:Optional[bool]=False,loglrange=(-3,5),
+                         rerun:Optional[bool]=False,
+                         start=None,**kwargs):
         """
         run chain for double star model
         num_step - number of steps
@@ -639,30 +679,57 @@ class Star:
         use_simple_res - whether to use values for single star model as starting point
         """
         logl_low,logl_high=loglrange
-        start=np.zeros([n,5])
-        start[:,2]=self.to_temp(np.random.rand(n),self.g2)
-        start[:,3]=np.random.rand(n)*(logl_high-logl_low)+logl_low
-        if not use_simple_res:
-            start[:,0]=self.to_temp(np.random.rand(n),self.g1)
-            start[:,1]=np.random.rand(n)*(logl_high-logl_low)+logl_low
-        else:
-            start[:,0]=self.par_single[0]
-            start[:,1]=self.par_single[1]
-            start[:,0]+=np.random.randn(n)*0.01
-            start[:,1]+=np.random.randn(n)*0.01
-        if self.use_parallax:
-            start[:,4]=np.random.randn(n)*self.e_plx+self.plx
-        else:
-            start[:,4]=np.random.randn(n)*self.d_err+self.d
-        print("starting conditions: ",start)
         logT1_low,logT1_high=self.get_boundaries(self.g1)
         logT2_low,logT2_high=self.get_boundaries(self.g2)
-        bijector_list_double=[Sigmoid(logT1_low,logT1_high),Sigmoid(-3,5),Sigmoid(logT2_low,logT2_high),Sigmoid(-3,5),Exp()]
+        if start is None:
+            start=np.zeros([n,5])
+            start[:,2]=self.to_temp(np.random.rand(n),self.g2)
+            start[:,3]=np.random.rand(n)*(logl_high-logl_low)+logl_low
+            if not use_simple_res:
+                start[:,0]=self.to_temp(np.random.rand(n),self.g1)
+                start[:,1]=np.random.rand(n)*(logl_high-logl_low)+logl_low
+            else:
+                start[:,0]=self.par_single[0]
+                start[:,1]=self.par_single[1]
+                start[:,0]+=np.random.randn(n)*0.01
+                start[:,1]+=np.random.randn(n)*0.01
+            if self.use_parallax:
+                start[:,4]=np.random.randn(n)*self.e_plx+self.plx
+            else:
+                start[:,4]=np.random.randn(n)*self.d_err+self.d
+            if kwargs["limit"]==True:
+                if logT1_high<logT2_low:
+                    raise ValueError("Wrong!")
+                elif logT2_high<logT1_low:
+                    pass
+                else:
+                    h=min(logT1_high,logT2_high)
+                    l=max(logT2_low,logT1_low)
+                    start[:,2]=np.random.rand(n)*(h-l)+l
+                    start[:,0]=np.random.rand(n)*(logT1_high-start[:,2])+start[:,2]
+        else:
+            if len(start.shape)==1:
+                start=np.repeat(np.array([start]),n,axis=0)+np.random.randn(n,5)*0.01
+
+        print("starting conditions: ",start)
+
+        bijector_list_double=[Sigmoid(logT1_low,logT1_high),Sigmoid(logl_low,logl_high),Sigmoid(logT2_low,logT2_high),Sigmoid(logl_low,logl_high),Exp()]
 
         sampler = emcee.EnsembleSampler(
-            n, 5, (biject(bijector_list_double))(self.get_log_prob_double)
+            n, 5, (biject(bijector_list_double))(self.get_log_prob_double),kwargs=kwargs
             )
-        sampler.run_mcmc(transform(start,bijector_list_double), num_step+num_burn, progress=progress)
+        starting=transform(start,bijector_list_double)
+        sampler.run_mcmc(starting, num_step+num_burn, progress=progress)
+        if rerun:
+            temp=untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_double)
+            temp_tran=np.unique(temp,axis=0)
+            print("sampling new starting conditions")
+            id = np.random.permutation(len(temp_tran))[:n]
+            new_start = temp_tran[id] + np.random.randn(n,5) * 0.001
+            print("new starting conditions:")
+            print(new_start)
+            sampler.reset()
+            sampler.run_mcmc(transform(new_start,bijector_list_double), num_step, progress=progress)
         temp=untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_double)
         logT1_samples,logL1_samples,logT2_samples,logL2_samples,d_samples=temp.T
         print("acceptence ratio:", np.mean(sampler.acceptance_fraction))
@@ -672,38 +739,6 @@ class Star:
         self.get_bic_double()
         self.log_prob_chainp=sampler.get_log_prob(flat=True,discard=num_burn)
 
-    def run_chain_double_start(self,num_step:int,num_burn:int,n:int,
-                               parameters:np.array,progress:Optional[bool]=True): 
-        """
-        run chain for double star model
-        num_step - number of steps
-        num_burn - number of burn-in steps
-        n - number of walkers 
-        progress - progres bar
-        parameters - starting parameters of chain
-        """  
-        if len(parameters.shape)>1:
-            start=parameters
-        else:
-            start=np.repeat(np.array([parameters]),n,axis=0)+np.random.randn(n,5)*0.01
-    
-        logT1_low,logT1_high=self.get_boundaries(self.g1)
-        logT2_low,logT2_high=self.get_boundaries(self.g2)
-        bijector_list_double=[Sigmoid(logT1_low,logT1_high),Sigmoid(-3,5),Sigmoid(logT2_low,logT2_high),Sigmoid(-3,5),Exp()]
-
-        sampler = emcee.EnsembleSampler(
-            n, 5, (biject(bijector_list_double))(self.get_log_prob_double)
-            )
-        print("starting conditions: ",start)
-        sampler.run_mcmc(transform(start,bijector_list_double), num_step+num_burn, progress=progress)
-        temp=untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_double)
-        logT1_samples,logL1_samples,logT2_samples,logL2_samples,d_samples=temp.T
-        print("acceptence ratio:", np.mean(sampler.acceptance_fraction))
-        self.par_double=[np.median(logT1_samples),np.median(logL1_samples),np.median(logT2_samples),np.median(logL2_samples),np.median(d_samples)]
-        self.par_double_container=temp.T
-        ###
-        self.get_bic_double()
-        self.log_prob_chainp=sampler.get_log_prob(flat=True,discard=num_burn)
 
     
     def run_chain_simple(self,num_step,num_burn,n,progress=True,LogL_range=(-3,5),start=None,rerun=False):
@@ -840,64 +875,7 @@ class Star:
         self.log_prob_chain=sampler.get_log_prob(flat=True,discard=num_burn)
 
 
-    def rerun_chain_double(self,num_step:int,num_burn:int,n:int,
-                           progress:Optional[bool]=True,
-                           max_prob:Optional[bool]=False,
-                           use_simple_res:Optional[bool]=False,
-                           loglrange=(-3,5)):
-        start=np.zeros([n,5])
-        logl_low,logl_high=loglrange
-        if use_simple_res:
-            start[:,0]=np.random.randn(n)*0.001+start[:,0]
-            start[:,1]=np.random.randn(n)*0.001+start[:,1]
-        else:
-            start[:,0]=self.to_temp(np.random.rand(n),self.g1)
-            start[:,1]=np.random.rand(n)*(logl_high-logl_low)+logl_low
-        start[:,2]=self.to_temp(np.random.rand(n),self.g2)
-        start[:,3]=np.random.rand(n)*(logl_high-logl_low)+logl_low
-        if self.use_parallax:
-            start[:,4]=np.random.randn(n)*self.e_plx+self.plx
-        else:
-            start[:,4]=np.random.randn(n)*self.d_err+self.d
-        logT1_low,logT1_high=self.get_boundaries(self.g1)
-        logT2_low,logT2_high=self.get_boundaries(self.g2)
-        bijector_list_double=[Sigmoid(logT1_low,logT1_high),Sigmoid(logl_low,logl_high),Sigmoid(logT2_low,logT2_high),Sigmoid(logl_low,logl_high),Exp()]
-
-        sampler = emcee.EnsembleSampler(
-            n, 5, (biject(bijector_list_double))(self.get_log_prob_double)
-            )
-        print("starting conditions:")
-        print(start)
-        sampler.run_mcmc(transform(start,bijector_list_double), num_step+num_burn, progress=progress)
-        print("initial acceptence ratio",np.mean(sampler.acceptance_fraction))
-        
-        temp=untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_double)
-        print("values after first run: ",np.median(temp,axis=0))
-        temp_tran = np.unique(temp,axis=0)
-        if max_prob:
-            log_probs = sampler.get_log_prob(flat=True,discard=num_burn)
-            log_probs_tranc = np.unique(log_probs)
-            idx = (-log_probs_tranc).argsort()[:n]
-            new_start = temp_tran[idx]+0.01 * np.random.randn(n, 5)
-        else:
-            print("sampling new starting conditions")
-            id = np.random.permutation(len(temp_tran))[:n]
-            new_start = temp_tran[id] + np.random.randn(n,5) * 0.01
-
-        print("new starting conditions:")
-        print(new_start)
-        sampler.reset()
-        sampler.run_mcmc(transform(new_start,bijector_list_double), num_step, progress=progress)
-        print("acceptence ratio",np.mean(sampler.acceptance_fraction))
-        temp=untransform(sampler.get_chain(flat=True),bijector_list_double)
-        logT1_samples,logL1_samples,logT2_samples,logL2_samples,v_samples=temp.T
-        
-        self.par_double=[np.median(logT1_samples),np.median(logL1_samples),np.median(logT2_samples),np.median(logL2_samples),np.median(v_samples)]
-        self.par_double_container=temp.T
-        ###
-        self.get_bic_double()
-        self.log_prob_chainp=sampler.get_log_prob(flat=True,discard=num_burn)
-
+   
     def plot_measurments(self,ax,plot_fwhm=False):
         N = len(self.ampl)
 
@@ -940,7 +918,7 @@ class Star:
             else:
                 ax.errorbar(x=lam, y=lamF_lam, yerr=lamFlam_err, fmt='o', mfc='navy', color='navy', ms=4, elinewidth=1.5,  capsize=2,label="measurements")
     
-    def plot_dist_simple(self,FWHM=False,ax=None):
+    def plot_dist_simple(self,FWHM=False,ax=None,plot_bic=True):
         if ax is None:
             fig = plt.figure(figsize=(6,4))
             ax = plt.axes()
@@ -981,7 +959,10 @@ class Star:
         ax.set_ylabel(r'log $\lambda F_{\lambda}$ (erg cm$^{-2}$s$^{-1}$)')
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
         ax.set_title(self.name)
-        plt.figtext(0.2,0.05,"BIC: {0:.1f}".format(self.bic_simple))
+        if plot_bic:
+            plt.figtext(0.2,0.05,"BIC: {0:.1f}".format(self.bic_simple))
+        else:
+            plt.figtext(0.2,0.05,"$\chi^2$= {0:.1f} N = {1:.0f}".format(self.chis,len(self.filters)))
         if self.gp is None:
             plt.figtext(0.2,0.1,"$\log(g)={0:.2f}^{{+{2:.2f}}}_{{-{1:.2f}}}$".format(np.median(self.par_single_container[3]),
                                                                                 np.median(self.par_single_container[3])-np.quantile(self.par_single_container[3],0.16),
@@ -1001,7 +982,9 @@ class Star:
         data=self.par_single_container.T
         upper=list(map(lambda x:(n_l+2)/2*np.quantile(x,0.84)-np.quantile(x,0.16)*n_l/2,self.par_single_container))
         lower=list(map(lambda x:(n_l+2)/2*np.quantile(x,0.16)-np.quantile(x,0.84)*n_l/2,self.par_single_container))
-        bins=list(map(lambda x:int(bi/(upper[x]-lower[x])*(max(self.par_single_container[x])-min(self.par_single_container[x]))),range(len(upper))))
+        index=np.all(np.logical_and(data<upper,data>lower).T,axis=0)
+        data=data[index,:]
+        bins=list(map(lambda x:int(bi/(upper[x]-lower[x])*(max(data[:,x])-min(data[:,x]))),range(len(upper))))
 
         if self.use_parallax:
             labels=[
@@ -1042,7 +1025,7 @@ class Star:
         plt.savefig(self.name+"_simple_corner_emcee.png",dpi=500)
 
 
-    def plot_dist_double(self,FWHM=False,ax=None):
+    def plot_dist_double(self,FWHM=False,ax=None,plot_bic=True):
         if ax is None:
             fig = plt.figure(figsize=(6,4))
             ax=plt.axes()
@@ -1078,7 +1061,10 @@ class Star:
         ax.set_ylabel(r'log $\lambda F_{\lambda}$ (erg cm$^{-2}$s$^{-1}$)')
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
         plt.title(self.name)
-        plt.figtext(0.2,0.05,"BIC: {0:.1f}".format(self.bicd))
+        if plot_bic:
+            plt.figtext(0.2,0.05,"BIC: {0:.1f}".format(self.bicd))
+        else:
+            plt.figtext(0.2,0.05,"$\chi^2$= {0:.1f} N = {1:.0f}".format(self.chi2d,len(self.filters)))
         if self.EBV is None:
             high=0.05
         else:
@@ -1107,6 +1093,10 @@ class Star:
         #lower[1]=max(lower[1],-3)
         lower[2]=max(lower[2],t_min2)
         #lower[3]=max(lower[3],-3)
+        index=np.all(np.logical_and(data<upper,data>lower).T,axis=0)
+        data=data[index,:]
+        bins=list(map(lambda x:int(bi/(upper[x]-lower[x])*(max(data[:,x])-min(data[:,x]))),range(len(upper))))
+
         if self.use_parallax:
             labels=[
             r"log $T_1$",
@@ -1131,11 +1121,7 @@ class Star:
             show_titles=True,
             title_kwargs={"fontsize": 12},
             title_fmt=".3f",
-            bins=[int(bi/(upper[0]-lower[0])*(max(self.par_double_container[0])-min(self.par_double_container[0]))),
-            int(bi/(upper[1]-lower[1])*(max(self.par_double_container[1])-min(self.par_double_container[1]))),
-            int(bi/(upper[2]-lower[2])*(max(self.par_double_container[2])-min(self.par_double_container[2]))),
-            int(bi/(upper[3]-lower[3])*(max(self.par_double_container[3])-min(self.par_double_container[3]))),
-            int(bi/(upper[4]-lower[4])*(max(self.par_double_container[4])-min(self.par_double_container[4])))]
+            bins=bins
             )
             
         axes = np.array(figure.axes).reshape((5, 5))

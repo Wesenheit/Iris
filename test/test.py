@@ -4,6 +4,7 @@ This script shows how to use Iris to reconstruct SED fit of Gaia BH1 object from
 
 from Iris import Star,Galactic
 import numpy as np
+from pystellibs import Kurucz
 name="Gaia BH1"
 ra=262.171207276
 dec=-0.581091963
@@ -20,6 +21,6 @@ t.prepare_data()
 t.list_filters()
 t.set_EBV(0.299) # from orginal paper
 t.gp=4.5
-t.run_chain_simple(3000,200,16)
+t.run_chain_simple_with_Z(3000,200,16,Z_range=(0.0,0.2))
 t.plot_dist_simple()
 t.plot_corner_simple()
