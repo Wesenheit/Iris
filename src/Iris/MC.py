@@ -75,7 +75,10 @@ def get_SWIFT(name):
     return Filter(wave,trans,name="SWIFT_"+name,unit='Angstrom')
 
 
-
+def get_UKIDSS(name):
+    wave=np.loadtxt(directory.joinpath("UKIRT_UKIDSS."+name+".dat"), unpack=True, usecols=[0], dtype=float)*unit["AA"]
+    trans=np.loadtxt(directory.joinpath("UKIRT_UKIDSS."+name+".dat"), unpack=True, usecols=[1], dtype=float)/100
+    return Filter(wave,trans,name="UKIDSS_"+name,unit='Angstrom')
 
 
 class Star:
@@ -106,6 +109,8 @@ class Star:
         self.catalogs=catalog               #catalog in the specified format to search Vizier
         self.EBV=E_B_V                      #E(B-V), used to include extinction using 
         self.Z=Z                            #metalicity
+        self.Z1=Z
+        self.Z2=Z
         self.par_single=None                #parameters of single sample
         self.par_single_container=None      #container for values
         self.par_double=None                #parameters of double sample
@@ -113,6 +118,8 @@ class Star:
         self.lib_stell=BaSeL()              #what library to use
         self.fluxes_ = None
         self.flux_err = None
+        self.err_estimate_flag = np.array([],dtype=bool)
+        self.error_estimate = None
 
         self.lib_phot=pyphot.get_library()
         self.gp=4
@@ -138,6 +145,11 @@ class Star:
         OTHER["H_IRSF"]=get_IRSF("H")
         OTHER["Ks_IRSF"]=get_IRSF("Ks")
         OTHER["J_IRSF"]=get_IRSF("J")
+        OTHER["H_UKIDSS"]=get_UKIDSS("H")
+        OTHER["J_UKIDSS"]=get_UKIDSS("J")
+        OTHER["K_UKIDSS"]=get_UKIDSS("K")
+        OTHER["Y_UKIDSS"]=get_UKIDSS("Y")
+        OTHER["Z_UKIDSS"]=get_UKIDSS("Z")
         self.OTHER=OTHER
 
         self.con={
@@ -206,6 +218,19 @@ class Star:
         t_max=np.max(logt_arr[is_in])
         return t_min,t_max
     
+    def add_error_estimate(self,filter,error):
+        try:
+            f=self.lib_phot[filter]
+        except tables.exceptions.NoSuchNodeError:
+            f=self.OTHER[filter]
+        self.error_estimate = (f,error)
+    def add_error_estimate_double(self,filter,error):
+        try:
+            f=self.lib_phot[filter]
+        except tables.exceptions.NoSuchNodeError:
+            f=self.OTHER[filter]
+        self.error_estimate_double = (f,error)
+
     def get_GALEX(self,num=0):
         results = Catalogs.query_object(str(self.ra)+" "+str(self.dec), catalog="Galex",radius=u.arcsec*2*self.dis_norm)
         if len(results)>0:
@@ -227,9 +252,9 @@ class Star:
             except:
                 f_err = 0
             if nuv>0:
-                self.add_obs("GALEX_NUV",nuv,n_err)
+                self.add_obs("GALEX_NUV",nuv,n_err,flag=True)
             if fuv>0:
-                self.add_obs("GALEX_FUV",fuv,f_err)
+                self.add_obs("GALEX_FUV",fuv,f_err,flag=True)
         else:
             print("No GALEX data in MAST!")
     def get_SMdr2(self,num=0):
@@ -256,6 +281,7 @@ class Star:
                         self.filters=np.append(self.filters,name_new)
                         self.ampl=np.append(self.ampl,float(file[num][self.catalogs[name][0][2*i]]))
                         self.err=np.append(self.err,err)
+                        self.err_estimate_flag = np.append(self.err_estimate_flag,False)
         else:
             print("no files found")
 
@@ -282,6 +308,7 @@ class Star:
                         self.filters=np.append(self.filters,name_new)
                         self.ampl=np.append(self.ampl,float(file[num][2*i]))
                         self.err=np.append(self.err,err)
+                        self.err_estimate_flag = np.append(self.err_estimate_flag,self.catalogs[name][3][i])
         except IndexError:
             pass
             #print("Object "+self.name+" not found in catalog "+name) 
@@ -295,6 +322,7 @@ class Star:
             self.filters=self.filters[np.logical_not(id)]
             self.err=self.err[np.logical_not(id)]
             self.ampl=self.ampl[np.logical_not(id)]
+            self.err_estimate_flag=self.err_estimate_flag[np.logical_not(id)]
         else:
             print("no filter with given name")
     
@@ -306,6 +334,7 @@ class Star:
         self.ampl=self.ampl[np.logical_not(temp)]
         self.filters=self.filters[np.logical_not(temp)]
         self.err=self.err[np.logical_not(temp)]
+        self.err_estimate_flag=self.err_estimate_flag[np.logical_not(temp)]
 
     def get_all(self,get_SMDR2=True,get_galex_mast=1,**kwargs):
         """
@@ -449,13 +478,14 @@ class Star:
         self.ext=extinction.ccm89(np.array(self.lib_stell.wavelength).astype(np.double),3.1*self.EBV,3.1)
         print("E(B-V) = ",self.EBV)
 
-    def add_obs(self,name,ampl,err):
+    def add_obs(self,name,ampl,err,flag=True):
         """
         manually add observation
         """
         self.filters=np.append(self.filters,self.con[name] if name in self.con else name)
         self.ampl=np.append(self.ampl,ampl)
         self.err=np.append(self.err,err)
+        self.err_estimate_flag = np.append(self.err_estimate_flag,flag)
 
     def get_EBV_TIC(self):
         """
@@ -477,9 +507,12 @@ class Star:
         except IndexError:
             print("No E(B-V) found for object")
 
-    def list_filters(self):
+    def list_filters(self,show_flag=False):
         for i in range(len(self.filters)):
-            print("{} {:.5g} {:.2g}".format(self.filters[i],self.ampl[i],self.err[i]))
+            if show_flag:
+                print("{} {:.5g} {:.2g} {}".format(self.filters[i],self.ampl[i],self.err[i],self.err_estimate_flag[i]))
+            else:
+                print("{} {:.5g} {:.2g}".format(self.filters[i],self.ampl[i],self.err[i]))
 
     """
     MCMC ROUTINES
@@ -541,7 +574,7 @@ class Star:
                     pred[i]=-2.5*np.log10(val)-self.OTHER[list_filters[i]].Vega_zero_mag
         return pred
 
-    def get_log_prob_simple(self,i,use_Z=False):
+    def get_log_prob_simple(self,i,use_Z=False,estimate_error = None,no_D=False):
         """
         log prob of observations giving single star model
         """
@@ -567,19 +600,33 @@ class Star:
         stell=self.lib_stell.generate_stellar_spectrum(logT,g,logL,Z)/(4*math.pi*d**2*kpc**2)
         if self.EBV!=None:
             stell=np.power(10,-0.4*self.ext)*stell
+
         for i in range(len(self.ampl)):
-            val=(self.fil_obj[i].get_flux(np.array(self.lib_stell.wavelength)*unit['AA'],np.array(stell)*unit['flam']))
+            val=(self.fil_obj[i].get_flux(self.lib_stell.wavelength.magnitude*unit['AA'],np.array(stell)*unit['flam']))
             try:
                 pred[i]=val.value/self.zerop[i]
             except AttributeError:
                 pred[i]=val/self.zerop[i]
-        return_val= -np.sum((pred-self.fluxes_)**2/(2*self.err_flux**2))
+
+        if estimate_error is None:
+            errors = self.err_flux
+        else:
+            errors = np.zeros_like(self.err_flux)
+            for i in range(len(self.err)):
+                if self.err_estimate_flag[i]:
+                    errors[i] = np.sqrt((pred[i]*self.error_estimate[1]*np.log(10)*0.4)**2+self.err_flux[i]**2)
+                else:
+                    errors[i] = self.err_flux[i]
+
+        return_val= -np.sum((pred-self.fluxes_)**2/(2*errors**2))
+        if no_D:
+            return return_val
         if self.use_parallax:
             return return_val-(d_p-self.plx)**2/(2*self.e_plx**2)
         else:
             return return_val-(d-self.d)**2/(2*self.d_err**2)
 
-    def get_log_prob_double(self,i,limit=False):
+    def get_log_prob_double(self,i,limit=False,estimate_error=None,no_D=False):
         """
         log prob of observations given 2 star model
         """
@@ -591,75 +638,71 @@ class Star:
         else:
             d=d_p
         pred=np.zeros(len(self.ampl))
-        stell=(self.lib_stell.generate_stellar_spectrum(logT1,self.g1,logL1,self.Z)+self.lib_stell.generate_stellar_spectrum(logT2,self.g2,logL2,self.Z))/(4*math.pi*d**2*kpc**2)
+        f1 = self.lib_stell.generate_stellar_spectrum(logT1,self.g1,logL1,self.Z1)/(4*math.pi*d**2*kpc**2)
+        f2 = self.lib_stell.generate_stellar_spectrum(logT2,self.g2,logL2,self.Z2)/(4*math.pi*d**2*kpc**2)
         if self.EBV!=None:
-            stell=np.power(10,-0.4*self.ext)*stell
+            f1=np.power(10,-0.4*self.ext)*f1
+            f2=np.power(10,-0.4*self.ext)*f2
+        stell = np.stack((f1,f2))
+        val_arr = np.zeros([len(self.ampl),2])
         for i in range(len(self.ampl)):
-            val=(self.fil_obj[i].get_flux(np.array(self.lib_stell.wavelength)*unit['AA'],np.array(stell)*unit['flam']))
+            val=(self.fil_obj[i].get_flux(self.lib_stell.wavelength.magnitude*unit['AA'],stell*unit['flam']))/self.zerop[i]
             try:
-                pred[i]=val.value/self.zerop[i]
+                pred[i]=(val[0].value+val[1].value)
             except AttributeError:
-                pred[i]=val/self.zerop[i]
+                pred[i]=(val[0]+val[1])
+            val_arr[i] = val
+        if estimate_error is None:
+            errors = self.err_flux
+        elif estimate_error == "1":
+            flux=(self.error_estimate[0].get_flux(self.lib_stell.wavelength.magnitude*unit['AA'],stell*unit['flam']))/self.zerop[i]
+            try:
+                correction=(flux[0].value+flux[1].value)/flux[0].value
+            except AttributeError:
+                correction=(flux[0]+flux[1])/flux[0]
+            
+            errors = np.zeros_like(self.err_flux)
+            for i in range(len(self.err)):
+                if self.err_estimate_flag[i]:
+                    errors[i] = np.sqrt((val_arr[i,0]*correction*np.log(10)*0.4*self.error_estimate[1])**2+self.err_flux[i]**2)
+                else:
+                    errors[i] = self.err_flux[i]
+        
+        elif estimate_error == "2":
+            flux=(self.error_estimate[0].get_flux(self.lib_stell.wavelength.magnitude*unit['AA'],stell*unit['flam']))/self.zerop[i]
+            try:
+                correction=(flux[0].value+flux[1].value)/flux[1].value
+            except AttributeError:
+                correction=(flux[0]+flux[1])/flux[1]
+            errors = np.zeros_like(self.err_flux)
+            for i in range(len(self.err)):
+                if self.err_estimate_flag[i]:
+                    errors[i] = np.sqrt((val_arr[i,1]*correction*np.log(10)*0.4*self.error_estimate[1])**2+self.err_flux[i]**2)
+                else:
+                    errors[i] = self.err_flux[i]
+        #print(errors/self.err_flux)
         return_val= -np.sum((pred-self.fluxes_)**2/(2*self.err_flux**2))
+        if no_D:
+            return return_val
         if self.use_parallax:
             return return_val-(d_p-self.plx)**2/(2*self.e_plx**2)
         else:
             return return_val-(d-self.d)**2/(2*self.d_err**2)
 
 
-    def get_bic_double(self):
-        """
-        get bic score for double star model
-        """
-        logT_1=self.par_double[0]
-        logT_2=self.par_double[2]
-        logL_1=self.par_double[1]  
-        logL_2=self.par_double[3]
-        if self.use_parallax:
-            stell=(self.lib_stell.generate_stellar_spectrum(logT_1,self.g1,logL_1,self.Z)+self.lib_stell.generate_stellar_spectrum(logT_2,self.g2,logL_2,self.Z))*self.par_double[4]**2/(4*math.pi*kpc**2)
-        else:
-            stell=(self.lib_stell.generate_stellar_spectrum(logT_1,self.g1,logL_1,self.Z)+self.lib_stell.generate_stellar_spectrum(logT_2,self.g2,logL_2,self.Z))/(4*math.pi*self.par_double[4]**2*kpc**2)
-        if self.EBV!=None:
-            stell=np.power(10,-0.4*self.ext)*stell
-        pred=np.zeros(len(self.ampl))
-        for i in range(len(self.ampl)):
-            val=(self.fil_obj[i].get_flux(np.array(self.lib_stell.wavelength)*unit['AA'],np.array(stell)*unit['flam']))
-            try:
-                pred[i]=val.value/self.zerop[i]
-            except AttributeError:
-                pred[i]=val/self.zerop[i]
-        chi2=np.sum((pred-self.fluxes_)**2/(self.err_flux**2))
+    def get_bic_double(self,**kwargs):
+        chi2 = -2*self.get_log_prob_double(self.par_double,no_D=True,**kwargs)
         bic=chi2+5*np.log(len(self.ampl))
         print("chi2: ",chi2)
         print("BIC: ",bic)
         self.bicd=bic
         self.chi2d=chi2
-    def get_bic_simple(self):
-        """
-        get bic value for double star model
-        """
-        if self.gp is None:
-            g=self.par_single[3]
-        else:
-            g=self.gp
+    def get_bic_simple(self,estimate_error = None):
+
         if self.Z is None:
-            Z=self.par_single[3]
+            chi2 = -self.get_log_prob_simple(self.par_single,True,estimate_error = estimate_error,no_D=True)*2
         else:
-            Z=self.Z
-        if self.use_parallax:
-            stell=self.lib_stell.generate_stellar_spectrum(self.par_single[0],g,self.par_single[1],Z)*self.par_single[2]**2/(4*math.pi*kpc**2)
-        else:
-            stell=self.lib_stell.generate_stellar_spectrum(self.par_single[0],g,self.par_single[1],Z)/(4*math.pi*self.par_single[2]**2*kpc**2)
-        if self.EBV!=None:
-            stell=np.power(10,-0.4*self.ext)*stell
-        pred=np.zeros(len(self.ampl))
-        for i in range(len(self.ampl)):
-            val=(self.fil_obj[i].get_flux(np.array(self.lib_stell.wavelength)*unit['AA'],np.array(stell)*unit['flam']))
-            try:
-                pred[i]=val.value/self.zerop[i]
-            except AttributeError:
-                pred[i]=val/self.zerop[i]
-        chi2=np.sum((pred-self.fluxes_)**2/(self.err_flux**2))
+            chi2 = -self.get_log_prob_simple(self.par_single,False,estimate_error = estimate_error,no_D=True)*2
         bic=chi2+3*np.log(len(self.ampl))
         print("chi2: ",chi2)
         print("BIC: ",bic)
@@ -736,17 +779,17 @@ class Star:
         self.par_double=[np.median(logT1_samples),np.median(logL1_samples),np.median(logT2_samples),np.median(logL2_samples),np.median(d_samples)]
         self.par_double_container=temp.T
         ###
-        self.get_bic_double()
+        self.get_bic_double(**kwargs)
         self.log_prob_chainp=sampler.get_log_prob(flat=True,discard=num_burn)
 
 
     
-    def run_chain_simple(self,num_step,num_burn,n,progress=True,LogL_range=(-3,5),start=None,rerun=False):
+    def run_chain_simple(self,num_step,num_burn,n,progress=True,LogL_range=(-3,5),start=None,rerun=False,**kwargs):
         logl_low,logl_high=LogL_range
         logT_low,logT_high=self.get_boundaries(self.gp)
         bijector_list_sig=[Sigmoid(logT_low,logT_high),Sigmoid(logl_low,logl_high),Exp()]
         sampler = emcee.EnsembleSampler(
-            n, 3, (biject(bijector_list_sig))(self.get_log_prob_simple)
+            n, 3, (biject(bijector_list_sig))(self.get_log_prob_simple),kwargs=kwargs
             )
 
         if start is None:
@@ -776,9 +819,9 @@ class Star:
         print("acceptance ratio",np.mean(sampler.acceptance_fraction))
         states=untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_sig)
         logT_samples,logL_samples,val_samples=states.T
-        self.par_single=[np.median(logT_samples),np.median(logL_samples),np.median(val_samples)]
+        self.par_single=np.array([np.median(logT_samples),np.median(logL_samples),np.median(val_samples)])
         self.par_single_container=states.T
-        self.get_bic_simple()
+        self.get_bic_simple(**kwargs)
         print("parameters:",self.par_single)
         self.log_prob_chain=sampler.get_log_prob(flat=True,discard=num_burn)
 
@@ -829,7 +872,7 @@ class Star:
         self.log_prob_chain=sampler.get_log_prob(flat=True,discard=num_burn)
 
 
-    def run_chain_simple_with_Z(self,num_step,num_burn,n,Z_range,progress=True,LogL_range=(-3,5),start=None,rerun=False):
+    def run_chain_simple_with_Z(self,num_step,num_burn,n,Z_range,progress=True,LogL_range=(-3,5),start=None,rerun=False,estimate_error = None):
         logl_low,logl_high=LogL_range
         z_low,z_high=Z_range
         logT_low,logT_high=self.get_boundaries(self.gp)
@@ -838,7 +881,7 @@ class Star:
         bijector_list_sig=[Sigmoid(logT_low,logT_high),Sigmoid(logl_low,logl_high),Exp(),Sigmoid(z_low,z_high)]
         sampler = emcee.EnsembleSampler(
             n, 4, (biject(bijector_list_sig))(self.get_log_prob_simple),
-            kwargs={"use_Z":True}
+            kwargs={"use_Z":True,"estimate_error":estimate_error}
             )
         if start is None:
             start=np.zeros([n,4])
@@ -876,7 +919,7 @@ class Star:
 
 
    
-    def plot_measurments(self,ax,plot_fwhm=False):
+    def plot_measurments(self,ax,plot_fwhm=False,plot_ebv=True,limit=2,errors=None):
         N = len(self.ampl)
 
         lam, lamF_lam, logerr = [], [], []
@@ -887,13 +930,16 @@ class Star:
                 AB_if=True
             else:
                 AB_if=False
-            _lam, _F_nu, _F_lam, _lamF_lam, _frac_error = mag_to_flux_pyphot(self.fil_obj[i], self.ampl[i], self.err[i],AB_if)
-
+            if errors is None:
+                _lam, _F_nu, _F_lam, _lamF_lam, _frac_error = mag_to_flux_pyphot(self.fil_obj[i], self.ampl[i], self.err[i],AB_if)
+            else:
+                #print(errors)
+                _lam, _F_nu, _F_lam, _lamF_lam, _frac_error = mag_to_flux_pyphot(self.fil_obj[i], self.ampl[i], errors[i],AB_if)
             lam.append(_lam)
-            lamF_lam.append(np.log10(_lamF_lam))
+            lamF_lam.append(3+np.log10(_lamF_lam))
             logerr.append(_frac_error/np.log(10.0))
-            lamFlam.append(_lamF_lam)
-            lamFlam_err.append(_lamF_lam*_frac_error)
+            lamFlam.append(_lamF_lam*1000)
+            lamFlam_err.append(_lamF_lam*1000*_frac_error)
             try:
                 fwhm_dim=self.fil_obj[i].fwhm.magnitude/2
             except AttributeError:
@@ -907,22 +953,21 @@ class Star:
             else:
                 print("error, unknown unit",self.fil_obj[i].wavelength.units)
                 raise ValueError
-        lamF_lam=np.array(lamF_lam)+7-4
-        ax.set_ylim(min(lamF_lam)-0.5,max(lamF_lam)+2)
+        lamF_lam=np.array(lamF_lam)
+        ax.set_ylim(min(lamF_lam)-0.5,max(lamF_lam)+limit)
         ax.set_xlim(0.1,10)
-        if self.EBV is not None:
+        if self.EBV is not None and plot_ebv:
             plt.figtext(0.65,0.05,r"$E(B-V)={0:.3f}$".format(self.EBV))
         if len(lam)>0:
             if plot_fwhm:
-                ax.errorbar(x=lam, y=lamF_lam, yerr=lamFlam_err,xerr=fwhm, fmt='o', mfc='navy', color='navy', ms=4, elinewidth=1.5,  capsize=2,label="measurements")
+                ax.errorbar(x=lam, y=lamF_lam, yerr=logerr,xerr=fwhm, fmt='o', mfc='navy', color='navy', ms=3,  capsize=2,label="measurements")
             else:
-                ax.errorbar(x=lam, y=lamF_lam, yerr=lamFlam_err, fmt='o', mfc='navy', color='navy', ms=4, elinewidth=1.5,  capsize=2,label="measurements")
+                ax.errorbar(x=lam, y=lamF_lam, yerr=logerr, fmt='o', mfc='navy', color='navy', ms=3,capsize=2,label="measurements")
     
-    def plot_dist_simple(self,FWHM=False,ax=None,plot_bic=True):
+    def plot_dist_simple(self,FWHM=False,ax=None,plot_bic=True,plot_chi2=False,save=True,plot_label=True,plot_d=True,estimate_error=False,**kwargs):
         if ax is None:
             fig = plt.figure(figsize=(6,4))
             ax = plt.axes()
-        self.plot_measurments(ax,FWHM)
         if self.gp is None:
             g=self.par_single[3]
         else:
@@ -937,6 +982,26 @@ class Star:
             flux=self.lib_stell.generate_stellar_spectrum(self.par_single[0],g,self.par_single[1],Z)/(4*math.pi*self.par_single[2]**2*kpc**2)
         if self.EBV!=None:
             flux=np.power(10,-0.4*self.ext)*flux
+
+        pred = np.zeros_like(self.ampl)
+        for i in range(len(self.ampl)):
+            val=(self.fil_obj[i].get_flux(self.lib_stell.wavelength.magnitude*unit['AA'],np.array(flux)*unit['flam']))
+            try:
+                pred[i]=val.value/self.zerop[i]
+            except AttributeError:
+                pred[i]=val/self.zerop[i]
+
+        if estimate_error is None:
+            errors = self.err_flux
+        else:
+            errors = np.zeros_like(self.err_flux)
+            for i in range(len(self.err)):
+                if self.err_estimate_flag[i]:
+                    errors[i] = np.sqrt(self.error_estimate[1]**2+self.err[i]**2)
+                else:
+                    errors[i] = self.err[i]
+        self.plot_measurments(ax,FWHM,errors=errors,**kwargs)
+
         r_sample=self.lib_stell.get_radius(self.par_single[1],self.par_single_container[0])
         if self.use_parallax:
             d_samples=1/self.par_single_container[2]
@@ -955,13 +1020,14 @@ class Star:
         label=label,color="orange")
         ax.set_xscale('log')
         ax.legend()
-        ax.set_xlabel(r'$\lambda$ [$\mu\textrm{m}$]')
-        ax.set_ylabel(r'log $\lambda F_{\lambda}$ (erg cm$^{-2}$s$^{-1}$)')
+        if plot_label:
+            ax.set_xlabel(r'$\lambda$ [$\mu\textrm{m}$]')
+            ax.set_ylabel(r'log $\lambda F_{\lambda}$ (erg cm$^{-2}$s$^{-1}$)')
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
         ax.set_title(self.name)
         if plot_bic:
             plt.figtext(0.2,0.05,"BIC: {0:.1f}".format(self.bic_simple))
-        else:
+        if plot_chi2:
             plt.figtext(0.2,0.05,"$\chi^2$= {0:.1f} N = {1:.0f}".format(self.chis,len(self.filters)))
         if self.gp is None:
             plt.figtext(0.2,0.1,"$\log(g)={0:.2f}^{{+{2:.2f}}}_{{-{1:.2f}}}$".format(np.median(self.par_single_container[3]),
@@ -971,12 +1037,14 @@ class Star:
             high=0.05
         else:
             high=0.1
-        plt.figtext(0.65,high,"$d={0:.2f}^{{+{1:.2f}}}_{{-{2:.2f}}}$ kpc".format(np.median(d_samples),
+        if plot_d:
+            plt.figtext(0.65,high,"$d={0:.2f}^{{+{1:.2f}}}_{{-{2:.2f}}}$ kpc".format(np.median(d_samples),
                 np.quantile(d_samples,0.84)-np.median(d_samples),
                 np.median(d_samples)-np.quantile(d_samples,0.16)
-            ))
-        plt.tight_layout()
-        plt.savefig(self.name+"_simple_emcee.png",dpi=500)
+                ))
+        if save==True:
+            plt.tight_layout()
+            plt.savefig(self.name+"_simple_emcee.png",dpi=500)
 
     def plot_corner_simple(self,n_l=2.2,bi=20,):
         data=self.par_single_container.T
@@ -1025,11 +1093,10 @@ class Star:
         plt.savefig(self.name+"_simple_corner_emcee.png",dpi=500)
 
 
-    def plot_dist_double(self,FWHM=False,ax=None,plot_bic=True):
+    def plot_dist_double(self,FWHM=False,ax=None,plot_bic=True,estimate_error=None):
         if ax is None:
             fig = plt.figure(figsize=(6,4))
             ax=plt.axes()
-        self.plot_measurments(ax,FWHM)
         r1_sample=self.lib_stell.get_radius(self.par_double_container[1],self.par_double_container[0])
         r2_sample=self.lib_stell.get_radius(self.par_double_container[3],self.par_double_container[2])
         if self.use_parallax:
@@ -1043,11 +1110,53 @@ class Star:
         np.median(r2_sample)/Rs,np.quantile(r2_sample/Rs,0.84)-np.median(r2_sample/Rs),np.median(r2_sample)/Rs-np.quantile(r2_sample/Rs,0.16)
         ]
         print(param1,param2)
-        flux1=self.lib_stell.generate_stellar_spectrum(self.par_double[0],self.g1,self.par_double[1],self.Z)/(4*math.pi*np.median(d_samples)**2*kpc**2)
-        flux2=self.lib_stell.generate_stellar_spectrum(self.par_double[2],self.g2,self.par_double[3],self.Z)/(4*math.pi*np.median(d_samples)**2*kpc**2)
+        flux1=self.lib_stell.generate_stellar_spectrum(self.par_double[0],self.g1,self.par_double[1],self.Z1)/(4*math.pi*np.median(d_samples)**2*kpc**2)
+        flux2=self.lib_stell.generate_stellar_spectrum(self.par_double[2],self.g2,self.par_double[3],self.Z2)/(4*math.pi*np.median(d_samples)**2*kpc**2)
         if self.EBV!=None:
             flux1=np.power(10,-0.4*self.ext)*flux1
             flux2=np.power(10,-0.4*self.ext)*flux2
+        stell = np.stack((flux1,flux2))
+        val_arr = np.zeros([len(self.ampl),2])
+        pred = np.zeros_like(self.ampl)
+        for i in range(len(self.ampl)):
+            val=(self.fil_obj[i].get_flux(self.lib_stell.wavelength.magnitude*unit['AA'],stell*unit['flam']))/self.zerop[i]
+            try:
+                pred[i]=(val[0].value+val[1].value)
+            except AttributeError:
+                pred[i]=(val[0]+val[1])
+            val_arr[i] = val
+        if estimate_error is None:
+            errors = self.err_flux
+        elif estimate_error == "1":
+            flux=(self.error_estimate[0].get_flux(self.lib_stell.wavelength.magnitude*unit['AA'],stell*unit['flam']))/self.zerop[i]
+            try:
+                correction=(flux[0].value+flux[1].value)/flux[0].value
+            except AttributeError:
+                correction=(flux[0]+flux[1])/flux[0]
+            
+            errors = np.zeros_like(self.err_flux)
+            for i in range(len(self.err)):
+                if self.err_estimate_flag[i]:
+                    errors[i] = np.sqrt((val_arr[i,0]*correction/pred[i]*self.error_estimate[1])**2+self.err[i]**2)
+                else:
+                    errors[i] = self.err[i]
+        
+        elif estimate_error == "2":
+            flux=(self.error_estimate[0].get_flux(self.lib_stell.wavelength.magnitude*unit['AA'],stell*unit['flam']))/self.zerop[i]
+            try:
+                correction=(flux[0].value+flux[1].value)/flux[1].value
+            except AttributeError:
+                correction=(flux[0]+flux[1])/flux[1]
+            errors = np.zeros_like(self.err_flux)
+            for i in range(len(self.err)):
+                if self.err_estimate_flag[i]:
+                    errors[i] = np.sqrt((val_arr[i,1]*correction/pred[i]*self.error_estimate[1])**2+self.err[i]**2)
+                else:
+                    errors[i] = self.err[i]
+
+        self.plot_measurments(ax,FWHM,errors=errors)
+        #for i in range(len(self.filters)):
+        #    print(self.filters[i],errors[i]/self.err[i])
         ax.plot(np.array(self.lib_stell.wavelength)/10**4,np.log10(np.array(flux2)*np.array(self.lib_stell.wavelength)),
         label=r"$T={0:.0f}^{{+{1:.0f}}}_{{-{2:.0f}}}$ K, $R={3:.2f}^{{+{4:.2g}}}_{{-{5:.2g}}}$ $R_{{\odot}}$".format(*param2),color="red")
         ax.plot(np.array(self.lib_stell.wavelength)/10**4,np.log10(np.array(flux1)*np.array(self.lib_stell.wavelength)),
@@ -1276,6 +1385,8 @@ class Star:
         file.create_dataset("g2",data=(self.g2,))
         if self.Z is not None:
             file.create_dataset("Z",data=(self.Z,))
+        if self.EBV is not None:
+            file.create_dataset("EBV",data=(self.EBV,))
         file.close()
 
     def load(self,name=None):
@@ -1296,9 +1407,11 @@ class Star:
         if "err" in file.keys():
             self.err=np.array(file.get("err"))
         if "gp" in file.keys():
-            self.gp=file.get("gp")
-        self.g1=file.get("g1")
-        self.g2=file.get("g2")
+            self.gp=np.array(file.get("gp"))[0]
+        self.g1=np.array(file.get("g1"))[0]
+        self.g2=np.array(file.get("g2"))[0]
         if "Z" in file.keys():
-            self.gp=file.get("gp")
+            self.Z=np.array(file.get("Z"))[0]
+        if "EBV" in file.keys():
+            self.set_EBV(np.array(file.get("EBV"))[0])
         file.close()
