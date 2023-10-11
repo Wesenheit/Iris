@@ -7,6 +7,7 @@ import astropy.coordinates as coords
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from dustmaps.bayestar import BayestarQuery,BayestarWebQuery
 from pystellibs import Munari,BaSeL,Kurucz,Tlusty,Marcs,Elodie
 import pyphot
 import math
@@ -470,13 +471,14 @@ class Star:
         except IndexError:
             print("No gaia entry found for object")
 
-    def set_EBV(self,ebv):
+    def set_EBV(self,ebv,verbose=True):
         """
         set E(B-V) using provided value
         """
         self.EBV=ebv
         self.ext=extinction.ccm89(np.array(self.lib_stell.wavelength).astype(np.double),3.1*self.EBV,3.1)
-        print("E(B-V) = ",self.EBV)
+        if verbose:
+            print("E(B-V) = ",self.EBV)
 
     def add_obs(self,name,ampl,err,flag=True):
         """
@@ -507,6 +509,18 @@ class Star:
         except IndexError:
             print("No E(B-V) found for object")
 
+    def get_ebv_green19(self,downloaded=False,version="bayestar2019"):
+        coords = SkyCoord(self.ra*u.deg, self.dec*u.deg,distance=self.d*u.kpc if not self.use_parallax else 1/self.plx*u.kpc, frame='icrs')
+        if downloaded:
+            bayestar = BayestarQuery(version=version)
+        else:
+            bayestar = BayestarWebQuery(version=version)
+        try:
+            reddening = bayestar(coords, mode='median')*0.981
+            #print("E(B-V)",reddening)
+            self.set_EBV(reddening)
+        except:
+            print("outside footprint")
     def list_filters(self,show_flag=False):
         for i in range(len(self.filters)):
             if show_flag:
@@ -964,7 +978,7 @@ class Star:
             else:
                 ax.errorbar(x=lam, y=lamF_lam, yerr=logerr, fmt='o', mfc='navy', color='navy', ms=3,capsize=2,label="measurements")
     
-    def plot_dist_simple(self,FWHM=False,ax=None,plot_bic=True,plot_chi2=False,save=True,plot_label=True,plot_d=True,estimate_error=False,**kwargs):
+    def plot_dist_simple(self,FWHM=False,ax=None,plot_bic=True,plot_chi2=False,save=True,plot_label=True,plot_d=True,estimate_error=None,**kwargs):
         if ax is None:
             fig = plt.figure(figsize=(6,4))
             ax = plt.axes()

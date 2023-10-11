@@ -78,6 +78,8 @@ Galactic={
     ["DENIS_I","DENIS_J","DENIS_Ks"],0.3,[True,True,True]],
     "II/319/las9":[["Hmag","e_Hmag","Jmag1","e_Jmag1","Kmag","e_Kmag","Ymag","e_Ymag"],
                    ["H_UKIDSS","J_UKIDSS","K_UKIDSS","Y_UKIDSS",],0.5,[True,True,True,True]],
+    "II/316/gps6":[["Hmag","e_Hmag","Jmag1","e_Jmag1","Kmag","e_Kmag","Ymag","e_Ymag"],
+                   ["H_UKIDSS","J_UKIDSS","K_UKIDSS","Y_UKIDSS",],0.5,[True,True,True,True]],
     "II/335/galex_ais":[["FUVmag","e_FUVmag","NUVmag","e_NUVmag"],["FUV","NUV"],2.0,[True,True]],
     "II/312/ais":[["FUV","e_FUV","NUV","e_NUV"],["FUV","NUV"],2.0,[True,True]],
     "II/312/mis":[["FUV","e_FUV","NUV","e_NUV"],["FUV","NUV"],2.0,[True,True]],
@@ -89,5 +91,8 @@ Galactic={
     "II/336/apass9":[["Vmag","e_Vmag","Bmag","e_Bmag","g_mag","e_g'mag","r_mag","e_r'mag","i_mag","e_i'mag"],["V","B","SDSS_g","SDSS_r","SDSS_i"],0.4,[False,False,False,False,False]],
     "II/349/ps1":[["gMeanPSFMag","gMeanPSFMagErr","rMeanPSFMag","rMeanPSFMagErr","iMeanPSFMag","iMeanPSFMagErr","zMeanPSFMag","zMeanPSFMagErr",
                    "yMeanPSFMag","yMeanPSFMagErr"],
-                  ["g_PS1","r_PS1","i_PS1","z_PS1","y_PS1"],0.5,[True,True,True,True,True]]
+                  ["g_PS1","r_PS1","i_PS1","z_PS1","y_PS1"],0.5,[True,True,True,True,True]],
+    "II/376/vvv4":[["Z_1APERMAG1","Z_1APERMAG1ERR","Y_1APERMAG1","Y_1APERMAG1ERR","J_1APERMAG1","J_1APERMAG1ERR","H_1APERMAG1","H_1APERMAG1ERR","KS_1APERMAG1","KS_1APERMAG1ERR"],
+                   ["Z_VISTA","Y_VISTA","J_VISTA","H_VISTA","K_VISTA"],0.3,[True,True,True,True,True]],
+    "II/341/vphasp":[["u_AB","err_u","g_AB","err_g","r_AB","err_r"],["SDSS_u","SDSS_g","SDSS_r"],0.3,[True,True,True]]
 }
