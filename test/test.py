@@ -19,8 +19,8 @@ t.get_all(False)
 t.delete("WISE_RSR_W4")
 t.prepare_data()
 t.list_filters()
-t.set_EBV(0.299) # from orginal paper
+t.get_ebv_green19()
 t.gp=4.5
-t.run_chain_simple_with_Z(3000,200,16,Z_range=(0.0,0.2))
+t.run_chain_simple(3000,200,32)
 t.plot_dist_simple()
 t.plot_corner_simple()

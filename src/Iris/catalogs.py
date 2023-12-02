@@ -7,13 +7,13 @@ format- name of Vizier catalog is mapped to list containing
 """
 
 MagCloud={
-    "I/345/gaia2":[["Gmag","e_Gmag","BPmag","e_BPmag","RPmag","e_RPmag"],
-    ["G_Gaia","BP_Gaia","RP_Gaia"],0.4,[False,False,False]],
+    "I/355/gaiadr3":[["Gmag","e_Gmag","BPmag","e_BPmag","RPmag","e_RPmag"],
+    ["GAIA_DR3_G","GAIA_DR3_BP","GAIA_DR3_RP"],0.3,[False,False,False]],
     "II/246/out":[["Hmag","e_Hmag","Kmag","e_Kmag","Jmag","e_Jmag"],
     ["H_2MASS","K_2MASS","J_2MASS"],0.4,[True,True,True]],
     "II/281/2mass6x":[["Hmag","e_Hmag","Kmag","e_Kmag","Jmag","e_Jmag"],
     ["H_2MASS","K_2MASS","J_2MASS"],0.4,[True,True,True]],
-    "II/351/vmc_dr4":[["KSAPERMAG3","KSAPERMAG3ERR","JAPERMAG3","JAPERMAG3ERR","YAPERMAG3","YAPERMAG3ERR"],
+    "II/375/vmc_dr6":[["KSAPERMAG3","KSAPERMAG3ERR","JAPERMAG3","JAPERMAG3ERR","YAPERMAG3","YAPERMAG3ERR"],
     ["K_VISTA","J_VISTA","Y_VISTA"],0.4,[True,True,True]],
     "II/367/vhs_dr5":[["KSAPERMAG3","KSAPERMAG3ERR","JAPERMAG3","JAPERMAG3ERR","YAPERMAG3","YAPERMAG3ERR"],
     ["K_VISTA","J_VISTA","Y_VISTA"],0.4,[True,True,True]],
@@ -53,8 +53,8 @@ MagCloud={
 }
 
 Galactic={
-    "I/345/gaia2":[["Gmag","e_Gmag","BPmag","e_BPmag","RPmag","e_RPmag"],
-    ["G_Gaia","BP_Gaia","RP_Gaia"],0.3,[False,False,False]],
+    "I/355/gaiadr3":[["Gmag","e_Gmag","BPmag","e_BPmag","RPmag","e_RPmag"],
+    ["GAIA_DR3_G","GAIA_DR3_BP","GAIA_DR3_RP"],0.3,[False,False,False]],
     "V/147/sdss12":[["umag","e_umag","gmag","e_gmag","rmag","e_rmag","imag","e_imag","zmag","e_zmag"],
     ["SDSS_u","SDSS_g","SDSS_r","SDSS_i","SDSS_z"],0.3,[True,True,True,True,True]],
     "II/246/out":[["Hmag","e_Hmag","Kmag","e_Kmag","Jmag","e_Jmag"],
@@ -78,8 +78,8 @@ Galactic={
     ["DENIS_I","DENIS_J","DENIS_Ks"],0.3,[True,True,True]],
     "II/319/las9":[["Hmag","e_Hmag","Jmag1","e_Jmag1","Kmag","e_Kmag","Ymag","e_Ymag"],
                    ["H_UKIDSS","J_UKIDSS","K_UKIDSS","Y_UKIDSS",],0.5,[True,True,True,True]],
-    "II/316/gps6":[["Hmag","e_Hmag","Jmag1","e_Jmag1","Kmag","e_Kmag","Ymag","e_Ymag"],
-                   ["H_UKIDSS","J_UKIDSS","K_UKIDSS","Y_UKIDSS",],0.5,[True,True,True,True]],
+    "II/316/gps6":[["Hmag","e_Hmag","Jmag","e_Jmag","K1mag","e_K1mag"],
+                   ["H_UKIDSS","J_UKIDSS","K_UKIDSS",],0.5,[True,True,True]],
     "II/335/galex_ais":[["FUVmag","e_FUVmag","NUVmag","e_NUVmag"],["FUV","NUV"],2.0,[True,True]],
     "II/312/ais":[["FUV","e_FUV","NUV","e_NUV"],["FUV","NUV"],2.0,[True,True]],
     "II/312/mis":[["FUV","e_FUV","NUV","e_NUV"],["FUV","NUV"],2.0,[True,True]],
@@ -89,10 +89,11 @@ Galactic={
     "J/AN/336/590/varsum":[["rmag","s_rmag","imag","s_imag"],["SDSS_r","SDSS_i"],0.4,[True,True]],
     "II/339/uvotssc1":[["UVW2_ABMAG","UVW2_MAG_ERR","UVM2_ABMAG","UVM2_MAG_ERR","UVW1_ABMAG","UVW1_MAG_ERR"],["SWIFT_UVW2","SWIFT_UVM2","SWIFT_UVW1"],0.5,[True,True,True]],
     "II/336/apass9":[["Vmag","e_Vmag","Bmag","e_Bmag","g_mag","e_g'mag","r_mag","e_r'mag","i_mag","e_i'mag"],["V","B","SDSS_g","SDSS_r","SDSS_i"],0.4,[False,False,False,False,False]],
-    "II/349/ps1":[["gMeanPSFMag","gMeanPSFMagErr","rMeanPSFMag","rMeanPSFMagErr","iMeanPSFMag","iMeanPSFMagErr","zMeanPSFMag","zMeanPSFMagErr",
-                   "yMeanPSFMag","yMeanPSFMagErr"],
+    "II/349/ps1":[["gMeanPSFMag","gMeanPSFMagStd","rMeanPSFMag","rMeanPSFMagStd","iMeanPSFMag","iMeanPSFMagStd","zMeanPSFMag","zMeanPSFMagStd",
+                   "yMeanPSFMag","yMeanPSFMagStd"],
                   ["g_PS1","r_PS1","i_PS1","z_PS1","y_PS1"],0.5,[True,True,True,True,True]],
     "II/376/vvv4":[["Z_1APERMAG1","Z_1APERMAG1ERR","Y_1APERMAG1","Y_1APERMAG1ERR","J_1APERMAG1","J_1APERMAG1ERR","H_1APERMAG1","H_1APERMAG1ERR","KS_1APERMAG1","KS_1APERMAG1ERR"],
                    ["Z_VISTA","Y_VISTA","J_VISTA","H_VISTA","K_VISTA"],0.3,[True,True,True,True,True]],
-    "II/341/vphasp":[["u_AB","err_u","g_AB","err_g","r_AB","err_r"],["SDSS_u","SDSS_g","SDSS_r"],0.3,[True,True,True]]
+    "II/341/vphasp":[["u_AB","err_u","g_AB","err_g","r_AB","err_r"],["SDSS_u","SDSS_g","SDSS_r"],0.3,[True,True,True]],
+    #"II/321/iphas2":[["i","iErr","r","rErr"],["SDSS_r","SDSS_i"]]
 }

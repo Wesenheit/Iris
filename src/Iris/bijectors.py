@@ -36,10 +36,10 @@ class Identity():
         return x
     
     def jacobian_term(self,x):
-        if x>self.high or x<self.low:
-            return -np.inf
-        else:
-            return 0
+        id = np.logical_or(x > self.high, x < self.low)
+        odp = np.zeros_like(x)
+        odp[id] = -np.inf
+        return odp
 
 class Exp():
 
@@ -59,16 +59,16 @@ class Exp():
 def biject(args):
     def wrapper(func):
         def function(old_arg,**kwargs):
-            new_args=np.zeros(old_arg.shape)
-            for i in range(len(old_arg)):
-                new_args[i]=args[i](old_arg[i])
-            odp=0
-            for i in range(len(old_arg)):
-                odp=odp+args[i].jacobian_term(old_arg[i])
-            if np.isneginf(odp):
-                return -np.inf
-            else:
-                return odp+func(new_args,**kwargs)
+            new_args = np.zeros(old_arg.shape)
+            for i in range(old_arg.shape[1]):
+                new_args[:,i] = args[i](old_arg[:,i])
+            odp = np.zeros(old_arg.shape[0])
+            for i in range(old_arg.shape[1]):
+                odp = odp + args[i].jacobian_term(old_arg[:,i])
+            id = np.logical_not(np.isneginf(odp))
+            odp[id] = odp[id] + func(new_args[id,:],**kwargs)
+            #print(odp)
+            return odp
         return function
     return wrapper
 
