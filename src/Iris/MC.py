@@ -95,7 +95,6 @@ def get_H_Alpha():
 def get_GAIA_DR3(id):
     wave = np.loadtxt(directory.joinpath("passband.dat"), unpack=True, usecols=[0], dtype=float)*10*unit["AA"]
     trans = np.loadtxt(directory.joinpath("passband.dat"), unpack=True, usecols=[1+2*id], dtype=float)
-    print(np.sum(trans == 99.99))
     trans[trans == 99.99] = 0
     return Filter(wave,trans/100,name = "GAIA_DR3_" + str(id),unit='Angstrom')
 

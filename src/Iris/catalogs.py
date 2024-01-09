@@ -6,7 +6,7 @@ format- name of Vizier catalog is mapped to list containing
 3.radius of cone search measured in arcsec
 """
 
-MagCloud={
+MagCloud = {
     "I/355/gaiadr3":[["Gmag","e_Gmag","BPmag","e_BPmag","RPmag","e_RPmag"],
     ["GAIA_DR3_G","GAIA_DR3_BP","GAIA_DR3_RP"],0.3,[False,False,False]],
     "II/246/out":[["Hmag","e_Hmag","Kmag","e_Kmag","Jmag","e_Jmag"],
@@ -76,10 +76,10 @@ Galactic={
     ["u_SM","v_SM","r_SM","i_SM","g_SM","z_SM"],0.3,[True,True,True,True,True,True]],
     "B/denis/denis":[["Imag","e_Imag","Jmag","e_Jmag","Kmag","e_Kmag"],
     ["DENIS_I","DENIS_J","DENIS_Ks"],0.3,[True,True,True]],
-    "II/319/las9":[["Hmag","e_Hmag","Jmag1","e_Jmag1","Kmag","e_Kmag","Ymag","e_Ymag"],
-                   ["H_UKIDSS","J_UKIDSS","K_UKIDSS","Y_UKIDSS",],0.5,[True,True,True,True]],
-    "II/316/gps6":[["Hmag","e_Hmag","Jmag","e_Jmag","K1mag","e_K1mag"],
-                   ["H_UKIDSS","J_UKIDSS","K_UKIDSS",],0.5,[True,True,True]],
+    "II/319/las9":[["Hmag","e_Hmag","Jmag1","e_Jmag1","Jmag2","e_Jmag2","Kmag","e_Kmag","Ymag","e_Ymag"],
+                   ["H_UKIDSS","J_UKIDSS","J_UKIDSS","K_UKIDSS","Y_UKIDSS",],0.5,[True,True,True,True]],
+    "II/316/gps6":[["Hmag","e_Hmag","Jmag","e_Jmag","Kmag1","e_Kmag1","Kmag2","e_Kmag2","H2mag","e_H2mag"],
+                   ["H_UKIDSS","J_UKIDSS","K_UKIDSS","K_UKIDSS","H_UKIDSS"],0.5,[True,True,True,True,True]],
     "II/335/galex_ais":[["FUVmag","e_FUVmag","NUVmag","e_NUVmag"],["FUV","NUV"],2.0,[True,True]],
     "II/312/ais":[["FUV","e_FUV","NUV","e_NUV"],["FUV","NUV"],2.0,[True,True]],
     "II/312/mis":[["FUV","e_FUV","NUV","e_NUV"],["FUV","NUV"],2.0,[True,True]],
