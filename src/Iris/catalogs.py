@@ -77,7 +77,7 @@ Galactic={
     "B/denis/denis":[["Imag","e_Imag","Jmag","e_Jmag","Kmag","e_Kmag"],
     ["DENIS_I","DENIS_J","DENIS_Ks"],0.3,[True,True,True]],
     "II/319/las9":[["Hmag","e_Hmag","Jmag1","e_Jmag1","Jmag2","e_Jmag2","Kmag","e_Kmag","Ymag","e_Ymag"],
-                   ["H_UKIDSS","J_UKIDSS","J_UKIDSS","K_UKIDSS","Y_UKIDSS",],0.5,[True,True,True,True]],
+                   ["H_UKIDSS","J_UKIDSS","J_UKIDSS","K_UKIDSS","Y_UKIDSS",],0.5,[True,True,True,True,True]],
     "II/316/gps6":[["Hmag","e_Hmag","Jmag","e_Jmag","Kmag1","e_Kmag1","Kmag2","e_Kmag2","H2mag","e_H2mag"],
                    ["H_UKIDSS","J_UKIDSS","K_UKIDSS","K_UKIDSS","H_UKIDSS"],0.5,[True,True,True,True,True]],
     "II/335/galex_ais":[["FUVmag","e_FUVmag","NUVmag","e_NUVmag"],["FUV","NUV"],2.0,[True,True]],
