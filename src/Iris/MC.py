@@ -298,13 +298,13 @@ class Star:
         
 
     def to_temp(self,a,g,n=1000):
-        logt_arr=np.linspace(0,5.5,n)
-        g_arr=np.ones_like(logt_arr)*g
-        arr=np.stack((logt_arr,g_arr))
-        is_in=self.lib_stell.points_inside(arr.T)
-        t_min=np.min(logt_arr[is_in])
-        t_max=np.max(logt_arr[is_in])
-        return t_min+(t_max-t_min)*a
+        logt_arr = np.linspace(0,5.5,n)
+        g_arr = np.ones_like(logt_arr)*g
+        arr = np.stack((logt_arr,g_arr))
+        is_in = self.lib_stell.points_inside(arr.T)
+        t_min = np.min(logt_arr[is_in])
+        t_max = np.max(logt_arr[is_in])
+        return t_min + (t_max-t_min)*a
     
     def get_boundaries(self,g,n=1000):
         logt_arr=np.linspace(0,5.5,n)
@@ -637,22 +637,26 @@ class Star:
         """
         pred = np.zeros(len(list_filters))
         d = self.par_single[2]
-        stell = self.lib_stell.generate_stellar_spectrum(self.par_single[0],self.gp,self.par_single[1],self.Z)/(4*math.pi*d**2*kpc**2)
+        if self.gp is None:
+            g = self.par_single[3]
+        else:
+            g = self.gp
+        stell = self.lib_stell.generate_stellar_spectrum(self.par_single[0],g,self.par_single[1],self.Z)/(4*math.pi*d**2*kpc**2)
         if self.EBV != None:
-            stell=np.power(10,-0.4*self.ext)*stell
+            stell = np.power(10,-0.4*self.ext)*stell
         for i in range(len(list_filters)):
             try:
-                val=(self.lib_phot[list_filters[i]].get_flux(np.array(self.lib_stell.wavelength)*unit['AA'],np.array(stell)*unit['flam']))
+                val = (self.lib_phot[list_filters[i]].get_flux(np.array(self.lib_stell.wavelength)*unit['AA'],np.array(stell)*unit['flam']))
                 if list_filters[i] in self.AB:
-                    pred[i]=-2.5*np.log10(val.value)-self.lib_phot[list_filters[i]].AB_zero_mag
+                    pred[i] = -2.5*np.log10(val.value)-self.lib_phot[list_filters[i]].AB_zero_mag
                 else:
-                    pred[i]=-2.5*np.log10(val.value)-self.lib_phot[list_filters[i]].Vega_zero_mag
+                    pred[i] = -2.5*np.log10(val.value)-self.lib_phot[list_filters[i]].Vega_zero_mag
             except AttributeError:
-                val=(self.OTHER[list_filters[i]].get_flux(np.array(self.lib_stell.wavelength)*unit['AA'],np.array(stell)*unit['flam']))
+                val = (self.OTHER[list_filters[i]].get_flux(np.array(self.lib_stell.wavelength)*unit['AA'],np.array(stell)*unit['flam']))
                 if list_filters[i] in self.AB:
-                    pred[i]=-2.5*np.log10(val)-self.OTHER[list_filters[i]].AB_zero_mag
+                    pred[i] = -2.5*np.log10(val)-self.OTHER[list_filters[i]].AB_zero_mag
                 else:
-                    pred[i]=-2.5*np.log10(val)-self.OTHER[list_filters[i]].Vega_zero_mag
+                    pred[i] = -2.5*np.log10(val)-self.OTHER[list_filters[i]].Vega_zero_mag
         return pred
 
     def predict_double(self,list_filters):
@@ -691,8 +695,9 @@ class Star:
                 g = self.gp
             else:
                 logT,logL,d,g = in_data.T
-                logT_low,logT_high = self.get_boundaries(g)
-                logT = logT*(logT_high-logT_low)+logT_low
+                logT_low,logT_high = np.array(list(map(lambda x: self.get_boundaries(x),g))).T
+                if (logT < 1).any():
+                    logT = logT*(logT_high-logT_low)+logT_low
                 Z = self.Z
         else:
             logT,logL,d = in_data.T
@@ -705,7 +710,7 @@ class Star:
         dictionary["logL"] = logL
         dictionary["Z"] = Z *np.ones_like(logT) if type(Z) == float else Z
         tab = QTable(dictionary)
-        stell = (self.lib_stell.generate_individual_spectra(tab)[1].magnitude.T/(4*math.pi*d**2*kpc**2)).T
+        stell = (self.lib_stell.generate_individual_spectra(tab)[1].magnitude.T/(4*math .pi*d**2*kpc**2)).T
         if estimate_EBV:
             ebv = self.EBV_est_fun(d)
             ext = np.zeros_like(stell)
@@ -827,7 +832,7 @@ class Star:
         self.chi2d=chi2
 
     def get_bic_simple(self,**kwargs):
-        chi2 = -self.get_log_prob_simple(self.par_single.reshape(1,-1),no_D = True,**kwargs).item()*2
+        chi2 = -self.get_log_prob_simple(self.par_single.reshape(1,-1).repeat(2,0),no_D = True,**kwargs)[0]*2
         bic=chi2+3*np.log(len(self.ampl))
         print("chi2: ",chi2)
         print("BIC: ",bic)
@@ -910,9 +915,9 @@ class Star:
 
     
     def run_chain_simple(self,num_step,num_burn,n,progress=True,LogL_range=(-3,5),start=None,rerun=False,**kwargs):
-        logl_low,logl_high=LogL_range
-        logT_low,logT_high=self.get_boundaries(self.gp)
-        bijector_list_sig=[Identity(logT_low,logT_high),Identity(logl_low,logl_high),Exp()]
+        logl_low,logl_high = LogL_range
+        logT_low,logT_high = self.get_boundaries(self.gp)
+        bijector_list_sig = [Identity(logT_low,logT_high),Identity(logl_low,logl_high),Exp()]
         sampler = emcee.EnsembleSampler(
             n, 3, (biject(bijector_list_sig))(self.get_log_prob_simple),kwargs=kwargs,vectorize=True
             )
@@ -951,34 +956,34 @@ class Star:
         self.log_prob_chain=sampler.get_log_prob(flat=True,discard=num_burn)
 
     def run_chain_simple_with_g(self,num_step,num_burn,n,g_range,progress=True,LogL_range=(-3,5),start=None,rerun=False):
-        logl_low,logl_high=LogL_range
-        g_low,g_high=g_range
-        self.gp=None
-        bijector_list_sig=[Sigmoid(0,1),Sigmoid(logl_low,logl_high),Exp(),Sigmoid(g_low,g_high)]
+        logl_low,logl_high = LogL_range
+        g_low,g_high = g_range
+        self.gp = None
+        bijector_list_sig = [Identity(0,1),Identity(logl_low,logl_high),Exp(),Identity(g_low,g_high)]
         sampler = emcee.EnsembleSampler(
-            n, 4, (biject(bijector_list_sig))(self.get_log_prob_simple)
+            n, 4, (biject(bijector_list_sig))(self.get_log_prob_simple),vectorize=True
             )
         if start is None:
-            start=np.zeros([n,4])
-            start[:,0]=np.random.rand(n)
-            start[:,1]=np.random.rand(1,n)*(logl_high-logl_low)+logl_low
+            start = np.zeros([n,4])
+            start[:,0] = np.random.rand(n)
+            start[:,1] = np.random.rand(1,n)*(logl_high-logl_low)+logl_low
             if self.use_parallax:
-                start[:,2]=np.random.randn(n)*self.e_plx+self.plx
+                start[:,2] = np.random.randn(n)*self.e_plx+self.plx
             else:
-                start[:,2]=np.random.randn(n)*self.d_err+self.d
-            start[:,3]=np.random.rand(n)*(g_high-g_low)+g_low
+                start[:,2] = np.random.randn(n)*self.d_err+self.d
+            start[:,3] = np.random.rand(n)*(g_high-g_low)+g_low
         else:
-            if len(start.shape)==1:
-                logT_low,logT_high=self.get_boundaries(start[3])
-                start[0]=(start[0]-logT_low)/(logT_high-logT_low)
-                start=np.repeat(np.array([start]),n,axis=0)+np.random.randn(n,4)*0.01
+            if len(start.shape) == 1:
+                logT_low,logT_high = self.get_boundaries(start[3])
+                start[0] = (start[0]-logT_low)/(logT_high-logT_low)
+                start = np.repeat(np.array([start]),n,axis=0)+np.random.randn(n,4)*0.01
         print("starting conditions:", start)
         start_tf=transform(start,bijector_list_sig)
         sampler.run_mcmc(start_tf, num_step+num_burn, progress=progress)
         print("acceptance ratio",np.mean(sampler.acceptance_fraction))
         if rerun:
-            temp=untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_sig)
-            temp_tran=np.unique(temp,axis=0)
+            temp = untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_sig)
+            temp_tran = np.unique(temp,axis=0)
             print("sampling new starting conditions")
             id = np.random.permutation(len(temp_tran))[:n]
             new_start = temp_tran[id] + np.random.randn(n,4) * 0.01
@@ -986,12 +991,12 @@ class Star:
             print(new_start)
             sampler.reset()
             sampler.run_mcmc(transform(new_start,bijector_list_sig), num_step, progress=progress)
-        states=untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_sig)
+        states = untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_sig)
         for i in range(states.shape[0]):
-            logT_low,logT_high=self.get_boundaries(states[i][3])
-            states[i][0]=states[i][0]*(logT_high-logT_low)+logT_low
-        self.par_single=np.median(states,0)
-        self.par_single_container=states.T
+            logT_low,logT_high = self.get_boundaries(states[i][3])
+            states[i][0] = states[i][0]*(logT_high-logT_low) + logT_low
+        self.par_single = np.median(states,0)
+        self.par_single_container = states.T
         self.get_bic_simple()
         print("parameters:",self.par_single)
         self.log_prob_chain=sampler.get_log_prob(flat=True,discard=num_burn)
@@ -1136,7 +1141,7 @@ class Star:
             if type(g) is not float:
                 g = np.median(g)
             flux = self.lib_stell.generate_stellar_spectrum(self.par_single[0],g,self.par_single[1],Z)/(4*np.pi*self.par_single[2]**2*kpc**2)
-        if self.EBV!=None:
+        if self.EBV != None:
             flux = np.power(10,-0.4*self.ext)*flux
 
         pred = np.zeros_like(self.ampl)
