@@ -31,6 +31,13 @@ mpl.rcParams['font.family'] = 'serif'
 Rs=696340000
 kpc=3.08567758*10**21
 
+def check_bit(mask,bits):
+    for bit in bits:
+        bit_n = 1 << bit
+        if (mask & bit_n) == 0:
+            return False
+    return True
+
 def Flux_to_AB(wave,flux):
     return -2.5*np.log10(flux*wave**2/(2.998*10**18))-48.6
 
@@ -410,7 +417,40 @@ class Star:
         except IndexError:
             pass
             #print("Object "+self.name+" not found in catalog "+name) 
-
+    
+    def get_SDSS(self,num=0,verbose = False,**kwargs):
+        names2 = ["SDSS_u","SDSS_g","SDSS_r","SDSS_i","SDSS_z"]
+        v=Vizier(columns = ["umag","e_umag","gmag","e_gmag","rmag","e_rmag","imag","e_imag","zmag","e_zmag","flags_u","flags_g","flags_r","flags_i","flags_z"],**kwargs)
+        result = v.query_region(coords.SkyCoord(ra = self.ra, dec = self.dec,
+                                            unit = (u.deg, u.deg),
+                                            frame = 'icrs'),
+                                            catalog = "V/154/sdss16",
+                                            radius = 0.3*u.arcsec*self.dis_norm)
+        try:
+            file = result[0]
+            if verbose:
+                print(result)
+            for i in range(5):
+                if str(file[num][2*i]) == "--":
+                    print("Something missing in SDSS!")
+                elif not check_bit(file[num][10 + i],[24,5,7,58]):
+                    print("Wrong bits!")
+                else:
+                    err=0 if str(file[num][2*i+1]) == "--" else float(file[num][2*i+1])
+                    name_new = self.con[names2[i]] if names2[i] in self.con else names2[i]
+                    if name_new not in self.filters:
+                        if i == 0:
+                            corr = -0.04
+                        elif i == 4:
+                            corr = 0.02
+                        else:
+                            corr = 0 
+                        self.filters = np.append(self.filters,name_new)
+                        self.ampl = np.append(self.ampl,float(file[num][2*i])+corr)
+                        self.err = np.append(self.err,err)
+                        self.err_estimate_flag = np.append(self.err_estimate_flag,False)
+        except:
+            pass
     def delete(self,name):
         """
         delete one filter

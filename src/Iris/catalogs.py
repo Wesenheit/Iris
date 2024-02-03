@@ -55,8 +55,8 @@ MagCloud = {
 Galactic={
     "I/355/gaiadr3":[["Gmag","e_Gmag","BPmag","e_BPmag","RPmag","e_RPmag"],
     ["GAIA_DR3_G","GAIA_DR3_BP","GAIA_DR3_RP"],0.3,[False,False,False]],
-    "V/154/sdss16":[["umag","e_umag","gmag","e_gmag","rmag","e_rmag","imag","e_imag","zmag","e_zmag"],
-    ["SDSS_u","SDSS_g","SDSS_r","SDSS_i","SDSS_z"],0.3,[True,True,True,True,True]],
+    #"V/154/sdss16":[["umag","e_umag","gmag","e_gmag","rmag","e_rmag","imag","e_imag","zmag","e_zmag"],
+    #["SDSS_u","SDSS_g","SDSS_r","SDSS_i","SDSS_z"],0.3,[True,True,True,True,True]],
     "II/246/out":[["Hmag","e_Hmag","Kmag","e_Kmag","Jmag","e_Jmag"],
     ["H_2MASS","K_2MASS","J_2MASS"],0.3,[True,True,True]],
     "II/281/2mass6x":[["Hmag","e_Hmag","Kmag","e_Kmag","Jmag","e_Jmag"],
