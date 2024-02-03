@@ -55,7 +55,7 @@ MagCloud = {
 Galactic={
     "I/355/gaiadr3":[["Gmag","e_Gmag","BPmag","e_BPmag","RPmag","e_RPmag"],
     ["GAIA_DR3_G","GAIA_DR3_BP","GAIA_DR3_RP"],0.3,[False,False,False]],
-    "V/147/sdss16":[["umag","e_umag","gmag","e_gmag","rmag","e_rmag","imag","e_imag","zmag","e_zmag"],
+    "V/154/sdss16":[["umag","e_umag","gmag","e_gmag","rmag","e_rmag","imag","e_imag","zmag","e_zmag"],
     ["SDSS_u","SDSS_g","SDSS_r","SDSS_i","SDSS_z"],0.3,[True,True,True,True,True]],
     "II/246/out":[["Hmag","e_Hmag","Kmag","e_Kmag","Jmag","e_Jmag"],
     ["H_2MASS","K_2MASS","J_2MASS"],0.3,[True,True,True]],
@@ -88,7 +88,7 @@ Galactic={
     "II/340/xmmom2_1":[["UVW2mAB ","e_UVW2mAB ","UVM2mAB","e_UVM2mAB","UVW1mAB","e_UVW1mAB "],["UVW2","UVM2","UVW1"],0.6,[True,True,True]],
     "J/AN/336/590/varsum":[["rmag","s_rmag","imag","s_imag"],["SDSS_r","SDSS_i"],0.4,[True,True]],
     "II/339/uvotssc1":[["UVW2_ABMAG","UVW2_MAG_ERR","UVM2_ABMAG","UVM2_MAG_ERR","UVW1_ABMAG","UVW1_MAG_ERR"],["SWIFT_UVW2","SWIFT_UVM2","SWIFT_UVW1"],0.5,[True,True,True]],
-    "II/336/apass9":[["Vmag","e_Vmag","Bmag","e_Bmag","g_mag","e_g'mag","r_mag","e_r'mag","i_mag","e_i'mag"],["V","B","SDSS_g","SDSS_r","SDSS_i"],0.4,[False,False,False,False,False]],
+    "II/336/apass9":[["Vmag","e_Vmag","Bmag","e_Bmag","g'mag","e_g'mag","r'mag ","e_r'mag","i'mag ","e_i'mag"],["V","B","SDSS_g","SDSS_r","SDSS_i"],0.4,[False,False,False,False,False]],
     "II/349/ps1":[["gMeanPSFMag","gMeanPSFMagStd","rMeanPSFMag","rMeanPSFMagStd","iMeanPSFMag","iMeanPSFMagStd","zMeanPSFMag","zMeanPSFMagStd",
                    "yMeanPSFMag","yMeanPSFMagStd"],
                   ["g_PS1","r_PS1","i_PS1","z_PS1","y_PS1"],0.5,[True,True,True,True,True]],

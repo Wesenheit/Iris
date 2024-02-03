@@ -434,7 +434,7 @@ class Star:
         self.err=self.err[np.logical_not(temp)]
         self.err_estimate_flag=self.err_estimate_flag[np.logical_not(temp)]
 
-    def get_all(self,get_SMDR2=True,get_galex_mast=1,**kwargs):
+    def get_all(self,get_SMDR2=True,get_galex_mast=1,verbose = False,**kwargs):
         """
         use provided catalogs to find data
         """
@@ -446,7 +446,7 @@ class Star:
         if get_galex_mast>0:
             self.get_GALEX(get_galex_mast-1)
         for name in self.catalogs:
-            self.get_photo(name,**kwargs)
+            self.get_photo(name,verbose = verbose,**kwargs)
         if len(self.ampl)<10:
             warnings.warn("less then 10 points",Warning)
 
@@ -572,8 +572,8 @@ class Star:
         """
         set E(B-V) using provided value
         """
-        self.EBV=ebv
-        self.ext=extinction.ccm89(np.array(self.lib_stell.wavelength).astype(np.double),3.1*self.EBV,3.1)
+        self.EBV = ebv
+        self.ext = extinction.fitzpatrick99(np.array(self.lib_stell.wavelength).astype(np.double),3.1*self.EBV,3.1)
         if verbose:
             print("E(B-V) = ",self.EBV)
 
@@ -641,7 +641,11 @@ class Star:
             g = self.par_single[3]
         else:
             g = self.gp
-        stell = self.lib_stell.generate_stellar_spectrum(self.par_single[0],g,self.par_single[1],self.Z)/(4*math.pi*d**2*kpc**2)
+        if self.Z is None:
+            Z = self.par_single[3]
+        else:
+            Z = self.Z
+        stell = self.lib_stell.generate_stellar_spectrum(self.par_single[0],g,self.par_single[1],Z)/(4*math.pi*d**2*kpc**2)
         if self.EBV != None:
             stell = np.power(10,-0.4*self.ext)*stell
         for i in range(len(list_filters)):
