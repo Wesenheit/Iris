@@ -34,7 +34,8 @@ kpc=3.08567758*10**21
 def check_bit(mask,bits):
     for bit in bits:
         bit_n = 1 << bit
-        if (mask & bit_n) == 0:
+        print(mask , bit_n)
+        if not (mask & bit_n) == 0:
             return False
     return True
 
@@ -116,7 +117,7 @@ class Star:
     """
     def __init__(self,name:str,ra:float,dec:float,catalog=None,d:Optional[float]=None,
                  d_err:Optional[float]=None,parallax:Optional[float]=None,parallax_err:Optional[float]=None,
-                 E_B_V:Optional[float]=None,Z:Optional[float]=0.013):
+                 E_B_V:Optional[float]=None,Z:Optional[float] = 0.013,RV:Optional[float] = 3.1):
         self.name=name                      #name
         self.ra=ra                          #right ascesion angle
         self.dec=dec                        #declination
@@ -144,7 +145,11 @@ class Star:
         self.flux_err = None
         self.err_estimate_flag = np.array([],dtype=bool)
         self.error_estimate = None
-
+        self.RV = RV
+        self.RV_mean = 3.18
+        self.ext_fun = extinction.fitzpatrick99
+        self.RV_std = 0.18
+        self.AV_exp = 3
         self.d_prior = lambda x: -(x-self.d)**2/(2*self.d_err**2)
         self.parallax_prior = lambda x: -(1/x-self.plx)**2/(2*self.e_plx**2)
 
@@ -314,7 +319,7 @@ class Star:
         return t_min + (t_max-t_min)*a
     
     def get_boundaries(self,g,n=1000):
-        logt_arr=np.linspace(0,5.5,n)
+        logt_arr=np.linspace(0,10,n)
         g_arr=np.ones_like(logt_arr)*g
         arr=np.stack((logt_arr,g_arr))
         is_in=self.lib_stell.points_inside(arr.T)
@@ -402,7 +407,7 @@ class Star:
         try:
             file=result[0]
             if verbose:
-                print(result)
+                print(file)
             for i in range(len(self.catalogs[name][0])//2):
                 if str(file[num][2*i])=="--":
                     print("Something missing in {}!".format(name))
@@ -418,7 +423,7 @@ class Star:
             pass
             #print("Object "+self.name+" not found in catalog "+name) 
     
-    def get_SDSS(self,num=0,verbose = False,**kwargs):
+    def get_SDSS(self,num = 0,verbose = False,eta = 0.01,**kwargs):
         names2 = ["SDSS_u","SDSS_g","SDSS_r","SDSS_i","SDSS_z"]
         v=Vizier(columns = ["umag","e_umag","gmag","e_gmag","rmag","e_rmag","imag","e_imag","zmag","e_zmag","flags_u","flags_g","flags_r","flags_i","flags_z"],**kwargs)
         result = v.query_region(coords.SkyCoord(ra = self.ra, dec = self.dec,
@@ -433,8 +438,8 @@ class Star:
             for i in range(5):
                 if str(file[num][2*i]) == "--":
                     print("Something missing in SDSS!")
-                elif not check_bit(file[num][10 + i],[24,5,7,58]):
-                    print("Wrong bits!")
+                #elif not check_bit(file[num][10 + i],[,]):
+                #    print("Wrong bits!")
                 else:
                     err=0 if str(file[num][2*i+1]) == "--" else float(file[num][2*i+1])
                     name_new = self.con[names2[i]] if names2[i] in self.con else names2[i]
@@ -447,7 +452,7 @@ class Star:
                             corr = 0 
                         self.filters = np.append(self.filters,name_new)
                         self.ampl = np.append(self.ampl,float(file[num][2*i])+corr)
-                        self.err = np.append(self.err,err)
+                        self.err = np.append(self.err,np.sqrt(err**2 + eta**2))
                         self.err_estimate_flag = np.append(self.err_estimate_flag,False)
         except:
             pass
@@ -474,15 +479,15 @@ class Star:
         self.err=self.err[np.logical_not(temp)]
         self.err_estimate_flag=self.err_estimate_flag[np.logical_not(temp)]
 
-    def get_all(self,get_SMDR2=True,get_galex_mast=1,verbose = False,**kwargs):
+    def get_all(self,get_galex_mast=1,verbose = False,**kwargs):
         """
         use provided catalogs to find data
         """
         if self.catalogs==None:
             print("No catalog found!")
             return
-        if get_SMDR2:
-            self.get_SMdr2()
+        #if get_SMDR2:
+        #    self.get_SMdr2()
         if get_galex_mast>0:
             self.get_GALEX(get_galex_mast-1)
         for name in self.catalogs:
@@ -613,7 +618,8 @@ class Star:
         set E(B-V) using provided value
         """
         self.EBV = ebv
-        self.ext = extinction.fitzpatrick99(np.array(self.lib_stell.wavelength).astype(np.double),3.1*self.EBV,3.1)
+        print(self.RV)
+        self.ext = extinction.fitzpatrick99(np.array(self.lib_stell.wavelength).astype(np.double),self.RV*self.EBV,self.RV)
         if verbose:
             print("E(B-V) = ",self.EBV)
 
@@ -728,6 +734,49 @@ class Star:
                     pred[i]=-2.5*np.log10(val)-self.OTHER[list_filters[i]].Vega_zero_mag
         return pred
 
+    def get_log_prob_full(self,in_data):
+        """
+        log prob of observations giving single star model
+        """
+
+        logT,logg,Z,AV,RV= in_data.T
+        pred = np.zeros([in_data.shape[0],len(self.ampl)])
+        dictionary = {}
+        dictionary["logT"] = logT
+        dictionary["logg"] = logg
+        dictionary["logL"] = np.zeros_like(logg)
+        dictionary["Z"] = Z 
+        infs = np.zeros_like(logT)
+        for i,g in enumerate(logg):
+            t0,t1 = self.get_boundaries(g)
+            if logT[i] < t1 and logT[i]>t0:
+                pass
+            else:
+                infs[i] = 1
+        tab = QTable(dictionary)
+        wave,stell = self.lib_stell.generate_individual_spectra(tab)
+        for j in range(len(logT)):
+            if np.isnan(stell[j]).any():
+                infs[j] = 1
+        stell = stell.magnitude/(4*np.pi *kpc**2)
+        ext = np.zeros_like(stell)
+        for i in range(AV.shape[0]):
+            ext[i,:] = self.ext_fun(self.lib_stell.wavelength.magnitude,self.RV*AV[i],RV[i])
+        stell = np.power(10,-0.4*ext)*stell
+        for i in range(len(self.ampl)):
+            val = (self.fil_obj[i].get_flux(self.lib_stell.wavelength.magnitude*unit['AA'],stell*unit['flam'],axis = 1))
+            try:
+                pred[:,i] = val.value/self.zerop[i]
+            except AttributeError:
+                pred[:,i] = val/self.zerop[i]
+        pred = np.where(np.isnan(pred),-np.inf,pred)
+        factor = np.mean(self.fluxes_/pred,axis = 1,keepdims=True)
+        #print(factor.shape)
+        return_val= -np.sum((pred*factor-self.fluxes_)**2/(2*self.err_flux**2),axis = 1) - (RV-self.RV_mean)**2/(2*self.RV_std**2) +np.log(self.AV_exp) - self.AV_exp*AV
+        return_val[infs == 1] = -np.inf
+        return return_val
+
+
     def get_log_prob_simple(self,in_data,use_Z = False,estimate_error = None,no_D=False,estimate_EBV = False):
         """
         log prob of observations giving single star model
@@ -740,8 +789,8 @@ class Star:
             else:
                 logT,logL,d,g = in_data.T
                 logT_low,logT_high = np.array(list(map(lambda x: self.get_boundaries(x),g))).T
-                if (logT < 1).any():
-                    logT = logT*(logT_high-logT_low)+logT_low
+                #if (logT < 1).any():
+                logT = logT*(logT_high-logT_low)+logT_low
                 Z = self.Z
         else:
             logT,logL,d = in_data.T
@@ -752,18 +801,18 @@ class Star:
         dictionary["logT"] = logT
         dictionary["logg"] = g *np.ones_like(logT) if type(g) == float else g
         dictionary["logL"] = logL
-        dictionary["Z"] = Z *np.ones_like(logT) if type(Z) == float else Z
+        dictionary["Z"] = Z *np.ones_like(logT) if not use_Z else Z
         tab = QTable(dictionary)
         stell = (self.lib_stell.generate_individual_spectra(tab)[1].magnitude.T/(4*math .pi*d**2*kpc**2)).T
         if estimate_EBV:
             ebv = self.EBV_est_fun(d)
             ext = np.zeros_like(stell)
             for i in range(ext.shape[0]):
-                ext[i,:] = extinction.ccm89(self.lib_stell.wavelength.magnitude,3.1*ebv[i],3.1)
+                ext[i,:] = extinction.ccm89(self.lib_stell.wavelength.magnitude,av = self.RV*ebv[i],rv = self.RV)
             stell = np.power(10,-0.4*ext)*stell
         else:
-            if self.EBV!=None:
-                stell=np.power(10,-0.4*self.ext)*stell
+            if self.EBV is not None:
+                stell = np.power(10,-0.4*self.ext)*stell
 
         for i in range(len(self.ampl)):
             val = (self.fil_obj[i].get_flux(self.lib_stell.wavelength.magnitude*unit['AA'],stell*unit['flam'],axis = 1))
@@ -790,6 +839,7 @@ class Star:
         else:
             return return_val + self.d_prior(d)
 
+
     def get_log_prob_double(self,in_data,limit = False, estimate_error = None, no_D = False):
         """
         log prob of observations given 2 star model
@@ -811,6 +861,7 @@ class Star:
         length = logT1.shape[0]
         tab = QTable(dictionary)
         stell = (self.lib_stell.generate_individual_spectra(tab)[1].magnitude.T/(4*np.pi*np.concatenate((d,d))**2*kpc**2)).T
+        print(stell)
         if self.EBV!=None:
             stell = np.multiply(np.power(10,-0.4*self.ext),stell)
         val_arr = np.zeros([length,len(self.ampl),2])
@@ -869,14 +920,14 @@ class Star:
 
     def get_bic_double(self,**kwargs):
         chi2 = -2*self.get_log_prob_double(np.array(self.par_double).reshape(1,-1),no_D=True,**kwargs)[0]
-        bic=chi2+5*np.log(len(self.ampl))
+        bic = chi2+5*np.log(len(self.ampl))
         print("chi2: ",chi2)
         print("BIC: ",bic)
         self.bicd=bic
         self.chi2d=chi2
 
     def get_bic_simple(self,**kwargs):
-        chi2 = -self.get_log_prob_simple(self.par_single.reshape(1,-1).repeat(2,0),no_D = True,**kwargs)[0]*2
+        chi2 = -self.get_log_prob_simple(self.par_single.reshape(1,-1),no_D = True,**kwargs)[0]*2
         bic=chi2+3*np.log(len(self.ampl))
         print("chi2: ",chi2)
         print("BIC: ",bic)
@@ -895,9 +946,9 @@ class Star:
         progress - progres bar
         use_simple_res - whether to use values for single star model as starting point
         """
-        logl_low,logl_high=loglrange
-        logT1_low,logT1_high=self.get_boundaries(self.g1)
-        logT2_low,logT2_high=self.get_boundaries(self.g2)
+        logl_low,logl_high = loglrange
+        logT1_low,logT1_high = self.get_boundaries(self.g1)
+        logT2_low,logT2_high = self.get_boundaries(self.g2)
         if start is None:
             start=np.zeros([n,5])
             start[:,2]=self.to_temp(np.random.rand(n),self.g2)
@@ -956,7 +1007,50 @@ class Star:
         self.get_bic_double(**kwargs)
         self.log_prob_chainp=sampler.get_log_prob(flat=True,discard=num_burn)
 
+    
+    def run_chain_full(self,num_step,num_burn,n,progress=True,EBV_range = (0,2),Z_range = (0.,0.3),logg_range = (2,6),RV_range = (2,4),start=None,rerun=False,**kwargs):
+        Z_low,Z_high = Z_range
+        logg_low,logg_high = logg_range 
+        ebv_low,ebv_high = EBV_range
+        RV_low,RV_high = RV_range
+        bijector_list_sig = [Identity(np.min(self.lib_stell.logT),np.max(self.lib_stell.logT)),Identity(logg_low,logg_high),Identity(Z_low,Z_high),Identity(ebv_low,ebv_high),Identity(RV_low,RV_high)]
+        sampler = emcee.EnsembleSampler(
+            n, 5, (biject(bijector_list_sig))(self.get_log_prob_full),kwargs=kwargs,vectorize=True
+            )
 
+        if start is None:
+            start = np.zeros([n,5])
+            start[:,1] = np.random.rand(n)*(logg_high-logg_low)+logg_low
+            start[:,2] = 10**(np.random.rand(n)*(np.log10(Z_high)-np.log10(Z_low))+np.log10(Z_low))
+            start[:,3] = np.random.rand(n)*(ebv_high-ebv_low)+ebv_low
+            start[:,4] = np.random.rand(n)*(RV_high-RV_low)+RV_low
+            for i in range(n):
+                logT_low,logT_high = self.get_boundaries(start[i,1])
+                start[i,0] = np.random.rand()*(logT_high-logT_low)+logT_low
+
+        else:
+            if len(start.shape)==1:
+                start = np.repeat(np.array([start]),n,axis=0)+np.random.randn(n,5)*0.01
+        print("starting conditions:", start)
+        start_tf=transform(start,bijector_list_sig)
+        sampler.run_mcmc(start_tf, num_step+num_burn, progress=progress)
+        if rerun:
+            temp = untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_sig)
+            temp_tran = np.unique(temp,axis=0)
+            print("sampling new starting conditions")
+            id = np.random.permutation(len(temp_tran))[:n]
+            new_start = temp_tran[id] + np.random.randn(n,5) * 0.001
+            print("new starting conditions:")
+            print(new_start)
+            sampler.reset()
+            sampler.run_mcmc(transform(new_start,bijector_list_sig), num_step, progress=progress)
+        print("acceptance ratio",np.mean(sampler.acceptance_fraction))
+        states = untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_sig)
+        states[:,0] = 10** states[:,0]
+        points = np.median(states,axis = 0)
+        print(points)
+        #print(self.get_log_prob_full(points.reshape(-1,1)))
+        return states
     
     def run_chain_simple(self,num_step,num_burn,n,progress=True,LogL_range=(-3,5),start=None,rerun=False,**kwargs):
         logl_low,logl_high = LogL_range
@@ -1264,22 +1358,24 @@ class Star:
             plt.savefig(self.name+"_simple_emcee.png",dpi=500)
 
     def plot_corner_simple(self,n_l=2.2,bi=20,):
-        data=self.par_single_container.T
-        upper=list(map(lambda x:(n_l+2)/2*np.quantile(x,0.84)-np.quantile(x,0.16)*n_l/2,self.par_single_container))
-        lower=list(map(lambda x:(n_l+2)/2*np.quantile(x,0.16)-np.quantile(x,0.84)*n_l/2,self.par_single_container))
-        index=np.all(np.logical_and(data<upper,data>lower).T,axis=0)
-        data=data[index,:]
-        bins=list(map(lambda x:int(bi/(upper[x]-lower[x])*(max(data[:,x])-min(data[:,x]))),range(len(upper))))
         labels=[
             r"log $T$",
             r"log $L$",
             r"$d$",
             ]
-        if len(bins)>3:
+        data = self.par_single_container.T
+        if data.shape[1]>3:
             if self.gp is None:
                 labels.append("log g")
             else:
-                labels.append("$Z$")
+                data[:,-1] = np.log10(data[:,-1])
+                labels.append("$logZ$")
+        upper = list(map(lambda x:(n_l+2)/2*np.quantile(x,0.84)-np.quantile(x,0.16)*n_l/2,self.par_single_container))
+        lower = list(map(lambda x:(n_l+2)/2*np.quantile(x,0.16)-np.quantile(x,0.84)*n_l/2,self.par_single_container))
+        index = np.all(np.logical_and(data<upper,data>lower).T,axis=0)
+        data = data[index,:]
+        bins = list(map(lambda x:int(bi/(upper[x]-lower[x])*(max(data[:,x])-min(data[:,x]))),range(len(upper))))
+
         figure = corner.corner(
             data,
             labels=labels,
