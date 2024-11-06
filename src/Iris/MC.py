@@ -31,6 +31,10 @@ mpl.rcParams['font.family'] = 'serif'
 Rs=696340000
 kpc=3.08567758*10**21
 
+def is_set(bit,mask):
+    return (mask & 2**bit) != 0
+
+
 def check_bit(mask,bits):
     for bit in bits:
         bit_n = 1 << bit
@@ -425,7 +429,11 @@ class Star:
     
     def get_SDSS(self,num = 0,verbose = False,eta = 0.01,**kwargs):
         names2 = ["SDSS_u","SDSS_g","SDSS_r","SDSS_i","SDSS_z"]
-        v=Vizier(columns = ["umag","e_umag","gmag","e_gmag","rmag","e_rmag","imag","e_imag","zmag","e_zmag","flags_u","flags_g","flags_r","flags_i","flags_z"],**kwargs)
+        fil = {"mode": "=1","class":"=6"}
+        v=Vizier(columns = ["psfMag_u","psfMagErr_u","psfMag_g","psfMagErr_g",
+                            "psfMag_r","psfMagErr_r","psfMag_i","psfMagErr_i",
+                            "psfMag_z","psfMagErr_z","flags_u","flags_g","flags_r","flags_i","flags_z","mode","class"],
+                 column_filters = fil,**kwargs)
         result = v.query_region(coords.SkyCoord(ra = self.ra, dec = self.dec,
                                             unit = (u.deg, u.deg),
                                             frame = 'icrs'),
@@ -434,12 +442,12 @@ class Star:
         try:
             file = result[0]
             if verbose:
-                print(result)
+                print(result[0])
             for i in range(5):
                 if str(file[num][2*i]) == "--":
                     print("Something missing in SDSS!")
-                #elif not check_bit(file[num][10 + i],[,]):
-                #    print("Wrong bits!")
+                elif not ( check_bit(file[num][10 + i],[5,9,46,47,40]) and is_set(file[num][10+i],28) and not (is_set(file[num][10+i],28) or is_set(file[num][10+i],34))):
+                    print("Wrong bits!")
                 else:
                     err=0 if str(file[num][2*i+1]) == "--" else float(file[num][2*i+1])
                     name_new = self.con[names2[i]] if names2[i] in self.con else names2[i]
@@ -734,7 +742,7 @@ class Star:
                     pred[i]=-2.5*np.log10(val)-self.OTHER[list_filters[i]].Vega_zero_mag
         return pred
 
-    def get_log_prob_full(self,in_data):
+    def get_log_prob_full(self,in_data,pred_ret = False):
         """
         log prob of observations giving single star model
         """
@@ -761,7 +769,8 @@ class Star:
         stell = stell.magnitude/(4*np.pi *kpc**2)
         ext = np.zeros_like(stell)
         for i in range(AV.shape[0]):
-            ext[i,:] = self.ext_fun(self.lib_stell.wavelength.magnitude,self.RV*AV[i],RV[i])
+            ext[i,:] = self.ext_fun(self.lib_stell.wavelength.magnitude,AV[i],RV[i])
+        AV = np.clip(AV,0,np.inf)
         stell = np.power(10,-0.4*ext)*stell
         for i in range(len(self.ampl)):
             val = (self.fil_obj[i].get_flux(self.lib_stell.wavelength.magnitude*unit['AA'],stell*unit['flam'],axis = 1))
@@ -774,7 +783,10 @@ class Star:
         #print(factor.shape)
         return_val= -np.sum((pred*factor-self.fluxes_)**2/(2*self.err_flux**2),axis = 1) - (RV-self.RV_mean)**2/(2*self.RV_std**2) +np.log(self.AV_exp) - self.AV_exp*AV
         return_val[infs == 1] = -np.inf
-        return return_val
+        if pred_ret:
+            return return_val, -2.5*np.log10(pred*factor)
+        else:
+            return return_val
 
 
     def get_log_prob_simple(self,in_data,use_Z = False,estimate_error = None,no_D=False,estimate_EBV = False):
@@ -861,7 +873,6 @@ class Star:
         length = logT1.shape[0]
         tab = QTable(dictionary)
         stell = (self.lib_stell.generate_individual_spectra(tab)[1].magnitude.T/(4*np.pi*np.concatenate((d,d))**2*kpc**2)).T
-        print(stell)
         if self.EBV!=None:
             stell = np.multiply(np.power(10,-0.4*self.ext),stell)
         val_arr = np.zeros([length,len(self.ampl),2])
@@ -935,7 +946,7 @@ class Star:
         self.chis = chi2
 
     def run_chain_double(self,num_step:int,num_burn:int,n:int,
-                         progress:Optional[bool]=True,use_simple_res:Optional[bool]=False,loglrange=(-3,5),
+                         progress:Optional[bool]=True,use_simple_res:Optional[bool]=False,logl_range=(-3,5),
                          rerun:Optional[bool]=False,
                          start=None,**kwargs):
         """
@@ -946,7 +957,7 @@ class Star:
         progress - progres bar
         use_simple_res - whether to use values for single star model as starting point
         """
-        logl_low,logl_high = loglrange
+        logl_low,logl_high = logl_range
         logT1_low,logT1_high = self.get_boundaries(self.g1)
         logT2_low,logT2_high = self.get_boundaries(self.g2)
         if start is None:
@@ -1046,14 +1057,14 @@ class Star:
             sampler.run_mcmc(transform(new_start,bijector_list_sig), num_step, progress=progress)
         print("acceptance ratio",np.mean(sampler.acceptance_fraction))
         states = untransform(sampler.get_chain(flat=True,discard=num_burn),bijector_list_sig)
-        states[:,0] = 10** states[:,0]
+        #states[:,0] = 10** states[:,0]
         points = np.median(states,axis = 0)
         print(points)
-        #print(self.get_log_prob_full(points.reshape(-1,1)))
-        return states
+        chi2,pred = self.get_log_prob_full(transform(points.reshape(1,-1),bijector_list_sig),pred_ret=True)
+        return states,chi2[0],pred[0]
     
-    def run_chain_simple(self,num_step,num_burn,n,progress=True,LogL_range=(-3,5),start=None,rerun=False,**kwargs):
-        logl_low,logl_high = LogL_range
+    def run_chain_simple(self,num_step,num_burn,n,progress=True,logl_range=(-3,5),start=None,rerun=False,**kwargs):
+        logl_low,logl_high = logl_range
         logT_low,logT_high = self.get_boundaries(self.gp)
         bijector_list_sig = [Identity(logT_low,logT_high),Identity(logl_low,logl_high),Exp()]
         sampler = emcee.EnsembleSampler(
