@@ -1019,12 +1019,12 @@ class Star:
         self.log_prob_chainp=sampler.get_log_prob(flat=True,discard=num_burn)
 
     
-    def run_chain_full(self,num_step,num_burn,n,progress=True,EBV_range = (0,2),Z_range = (0.,0.3),logg_range = (2,6),RV_range = (2,4),start=None,rerun=False,**kwargs):
+    def run_chain_full(self,num_step,num_burn,n,progress=True,AV_range = (0,10),Z_range = (0.,0.3),logg_range = (2,6),RV_range = (2,4),start=None,rerun=False,**kwargs):
         Z_low,Z_high = Z_range
         logg_low,logg_high = logg_range 
-        ebv_low,ebv_high = EBV_range
+        av_low,av_high = AV_range
         RV_low,RV_high = RV_range
-        bijector_list_sig = [Identity(np.min(self.lib_stell.logT),np.max(self.lib_stell.logT)),Identity(logg_low,logg_high),Identity(Z_low,Z_high),Identity(ebv_low,ebv_high),Identity(RV_low,RV_high)]
+        bijector_list_sig = [Identity(np.min(self.lib_stell.logT),np.max(self.lib_stell.logT)),Identity(logg_low,logg_high),Identity(Z_low,Z_high),Identity(av_low,av_high),Identity(RV_low,RV_high)]
         sampler = emcee.EnsembleSampler(
             n, 5, (biject(bijector_list_sig))(self.get_log_prob_full),kwargs=kwargs,vectorize=True
             )
@@ -1033,7 +1033,7 @@ class Star:
             start = np.zeros([n,5])
             start[:,1] = np.random.rand(n)*(logg_high-logg_low)+logg_low
             start[:,2] = 10**(np.random.rand(n)*(np.log10(Z_high)-np.log10(Z_low))+np.log10(Z_low))
-            start[:,3] = np.random.rand(n)*(ebv_high-ebv_low)+ebv_low
+            start[:,3] = np.random.rand(n)*(av_high - av_low) + av_low
             start[:,4] = np.random.rand(n)*(RV_high-RV_low)+RV_low
             for i in range(n):
                 logT_low,logT_high = self.get_boundaries(start[i,1])
