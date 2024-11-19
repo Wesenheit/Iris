@@ -150,7 +150,7 @@ class Star:
         self.err_estimate_flag = np.array([],dtype=bool)
         self.error_estimate = None
         self.RV = RV
-        self.RV_mean = 3.18
+        self.RV_mean = 3.32
         self.ext_fun = extinction.fitzpatrick99
         self.RV_std = 0.18
         self.AV_exp = 3
@@ -626,7 +626,6 @@ class Star:
         set E(B-V) using provided value
         """
         self.EBV = ebv
-        print(self.RV)
         self.ext = extinction.fitzpatrick99(np.array(self.lib_stell.wavelength).astype(np.double),self.RV*self.EBV,self.RV)
         if verbose:
             print("E(B-V) = ",self.EBV)
