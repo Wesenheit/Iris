@@ -8,7 +8,7 @@ setup(
     packages=find_namespace_packages(where="src"),
     package_dir={"":"src"},
     package_data={"Iris.filters":["*.dat","*.csv"]},
-    install_requiers = ['numpy','scipy','matplotlib','seaborn','emcee','dustmaps'],
+    install_requiers = ['numpy','scipy','matplotlib','seaborn','emcee','dustmaps','astropy','astroquery','pyphot','pyvo','h5py',],
     description="Python library for assembling SED",
     #include_package_data=True,
     license="MIT"
