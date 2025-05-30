@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Iris"
+version = "1.0"
+description = "Python library for assembling SED"
+authors = [
+  { name = "Mateusz Kapusta", email = "mr.kapusta@student.uw.edu.pl" }
+]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = [
+  "numpy",
+  "scipy",
+  "matplotlib",
+  "seaborn",
+  "emcee",
+  "dustmaps",
+  "astropy",
+  "astroquery",
+  "pyphot",
+  "pyvo",
+  "h5py",
+  "corner",
+  "extinction"
+]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["Iris*"]
+
+[tool.setuptools.package-data]
+"Iris.filters" = ["*.dat", "*.csv"]
+
