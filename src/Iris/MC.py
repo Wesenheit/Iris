@@ -48,7 +48,8 @@ def Flux_to_AB(wave,flux):
 
 directory = files("Iris.filters")
 def mag_to_flux_pyphot(filtr,mag, err,AB):
-    if err < 0: err = 0.2
+    if err < 0:
+        err = 0.2
     if AB:
         F_nu = pow(10.0, -0.4*mag) * filtr.AB_zero_Jy.magnitude # Jy
     else:
