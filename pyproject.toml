@@ -38,3 +38,5 @@ include = ["Iris*"]
 [tool.setuptools.package-data]
 "Iris.filters" = ["*.dat", "*.csv"]
 
+[tool.ruff]
+extend-select = ["E", "W", "F"]
